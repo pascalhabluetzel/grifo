@@ -86,3 +86,16 @@ do
 ./ashure.py clst -i "$bc"_output.csv -o "$bc".csv -iter 3 -r
 done
 ```
+
+## Conversion to .fasta
+
+```{r}
+setwd("C:/Users/pascalh/Documents")
+#BiocManager::install("Biostrings")
+library(Biostrings)
+csv = read.csv("barcode12.csv")
+seq = csv$sequence
+names(seq) = csv$id
+dna = DNAStringSet(seq)
+writeXStringSet(dna, "barcode12.fasta")
+```
