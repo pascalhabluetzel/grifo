@@ -90,7 +90,7 @@ close(output)
 
 ## Clustering
 
-Clustering with {em}ashure{/em}
+Clustering with <em>ashure</em>
 
 ``` bash
 for bc in barcode*
