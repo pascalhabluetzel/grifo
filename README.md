@@ -49,3 +49,29 @@ cd ./results/qc/
     cat *.fastq | sed -n '1~4s/^@/>/p;2~4p' > "$bc"_concatenated.fasta
     done
 ```
+
+## Conversion to .csv
+
+```{r}
+setwd("C:/Users/pascalh/Documents")
+input <- readLines("barcode12_concatenated.fasta")
+output <- file("barcode12_output.csv","w")
+
+currentSeq <- 0
+newLine <- 0
+
+for(i in 1:length(input)) {
+  if(strtrim(input[i], 1) == ">") {
+    if(currentSeq == 0) {
+      writeLines(paste(input[i],""), output, sep=",")
+      currentSeq <- currentSeq + 1
+    } else {
+      writeLines(paste("\n",input[i],"", sep =""), output, sep=",")
+    }
+  } else {
+    writeLines(paste(input[i]), output, sep="")
+  }
+}
+
+close(output)
+```
