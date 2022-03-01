@@ -1,7 +1,10 @@
 # BRICO
-BRICO is an analysis pipeline for nanopore metabarcoding sequence data
+BRICO is an analysis pipeline for nanopore metabarcoding sequence data.
+The name of the pipeline is derived of the French verb <em>bricoler</em> (to cobble sth) and describes how it integrates existing tools into a new pipeline.
 
 ## Dependencies
+
+Brico uses the clustering module of <em>ashure</em>, which itself relies on the following tools:
 
 ``` bash
 pip install pandas          # for organizing underlying data
