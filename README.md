@@ -99,3 +99,14 @@ names(seq) = csv$id
 dna = DNAStringSet(seq)
 writeXStringSet(dna, "barcode12.fasta")
 ```
+
+## Taxonomic assignment
+
+Taxonomic assignement with <em>CREST4</em>
+
+``` bash
+for bc in barcode*
+do
+crest4 -f $bc".fasta -d bold
+done
+``` bash
