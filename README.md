@@ -1,6 +1,15 @@
 # BRICO
 BRICO is an analysis pipeline for nanopore metabarcoding sequence data
 
+## Dependencies
+
+``` bash
+pip install pandas          # for organizing underlying data
+pip install scikit-learn    # for clustering
+pip install hdbscan         # for clustering
+pip install spoa            # for clustering
+```
+
 ## Basecalling
 
 Basecalling with <em>guppy</em>. Specify flow cell type and sequencing kit.
