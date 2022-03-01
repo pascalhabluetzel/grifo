@@ -75,3 +75,14 @@ for(i in 1:length(input)) {
 
 close(output)
 ```
+
+## Clustering
+
+Clustering with {em}ashure{/em}
+
+``` bash
+for bc in barcode*
+do
+./ashure.py clst -i "$bc"_output.csv -o "$bc".csv -iter 3 -r
+done
+```
