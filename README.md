@@ -2,7 +2,7 @@
 BRICO is an analysis pipeline for nanopore metabarcoding sequence data
 
 ## Basecalling
-Basecalling with </i>guppy</>
+Basecalling with <em>guppy</em>
 ``` bash
 /opt/ont-guppy-cpu_3.0.3/bin/guppy_basecaller -i <path to folder with input data> -s <path to output folder> --flowcell FLO-MIN106 --kit SQK-PSK004
 ```
