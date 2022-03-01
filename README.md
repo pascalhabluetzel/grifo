@@ -1,3 +1,8 @@
+### To do list
+
+- Write a bash or python code for what is now written in R (conversions between csv and fasta formats)
+- 
+
 # BRICO
 BRICO is an analysis pipeline for nanopore metabarcoding sequence data.
 The name of the pipeline is derived of the French verb <em>bricoler</em> (to cobble sth) and describes how it integrates existing tools into a new pipeline.
@@ -88,14 +93,21 @@ for(i in 1:length(input)) {
 close(output)
 ```
 
+``` bash
+for bc in barcode*
+    do
+    sed -i '1s/^/id,sequence\n/' "$bc"_output.csv #add column names 'id' and 'sequence'
+done
+```
+
 ## Clustering
 
 Clustering with <em>ashure</em>
 
 ``` bash
 for bc in barcode*
-do
-./ashure.py clst -i "$bc"_output.csv -o "$bc".csv -iter 3 -r
+    do
+    ./ashure.py clst -i "$bc"_output.csv -o "$bc".csv -iter 3 -r
 done
 ```
 
