@@ -50,22 +50,22 @@ for bc in barcode* ;
     do
     cd ./barcode"$bc"/
         for fastq in *.fastq.gz ;  
-        do
-        echo "Filtering data $fastq..."
-        gunzip -c "$fastq" | NanoFilt --length 500 --maxlength 800 -q 8 | gzip > ./results/qc/barcode"$bc"/"$fastq"
+            do
+            echo "Filtering data $fastq..."
+            gunzip -c "$fastq" | NanoFilt --length 500 --maxlength 800 -q 8 | gzip > ./results/qc/barcode"$bc"/"$fastq"
         done
-    done
+done
 ```
 
 ## Concatenate
 
 ``` bash
 cd ./results/qc/
-    for bc in barcode*
+for bc in barcode*
     do
     cd ./"$bc"/
     cat *.fastq | sed -n '1~4s/^@/>/p;2~4p' > "$bc"_concatenated.fasta
-    done
+done
 ```
 
 ## Conversion to .csv
@@ -131,7 +131,7 @@ Taxonomic assignement with <em>CREST4</em>
 
 ``` bash
 for bc in barcode*
-do
-crest4 -f $bc".fasta -d bold
+    do
+    crest4 -f $bc".fasta -d bold
 done
 ```
