@@ -24,12 +24,28 @@ cat ./results/basecalling/*.fastq.gz | qcat -b ./results/demultiplexing/
 Filtering with <em>nanofilt</em>
 
 ``` bash
+mkdir ./results/qc/
 cd ./results/demultiplexing/
+find . -type d -exec mkdir -p -- ./results/qc/{}
+
 for bc in barcode* ;
+    do
     cd ./barcode"$bc"/
         for fastq in *.fastq.gz ;  
         do
         echo "Filtering data $fastq..."
-        gunzip -c "$fastq" | NanoFilt --length 500 --maxlength 800 -q 8 | gzip > ~/Nanopore_metabarcoding/results/qc/"$fastq"
+        gunzip -c "$fastq" | NanoFilt --length 500 --maxlength 800 -q 8 | gzip > ./results/qc/barcode"$bc"/"$fastq"
         done
+    done
+```
+
+## Concatenate
+
+``` bash
+cd ./results/qc/
+    for bc in barcode*
+    do
+    cd ./"$bc"/
+    cat *.fastq | sed -n '1~4s/^@/>/p;2~4p' > "$bc"_concatenated.fasta
+    done
 ```
