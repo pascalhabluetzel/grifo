@@ -109,4 +109,4 @@ for bc in barcode*
 do
 crest4 -f $bc".fasta -d bold
 done
-``` bash
+```
