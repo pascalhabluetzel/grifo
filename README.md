@@ -160,7 +160,7 @@ writeXStringSet(dna, "barcode12.fasta")
 
 something like this in Python:
 
-```
+```python
 lines = open("input.csv").readlines()
 
 for line in lines:
@@ -170,7 +170,7 @@ for line in lines:
 
 Python by Els
 
-```
+```python
 csv = 'output.csv'
 output = 'outputFASTA.fasta'
 
