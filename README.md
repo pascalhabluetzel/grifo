@@ -168,6 +168,26 @@ for line in lines:
     print(">"+cols[0]+"\n"+cols[1])
 ```
 
+Python by Els
+
+```
+csv = 'output.csv'
+output = 'outputFASTA.fasta'
+
+out_lines = []
+temp_line = ''
+with open(csv, 'r') as csv:
+    for line in csv:
+        cols = line.split(",")
+        out_lines.append(temp_line)
+        temp_line = cols[0] + "\n" + cols[1]
+
+out_lines.append(temp_line)
+
+with open(output, 'w') as csv_out:
+    csv_out.write('\n'.join(out_lines))
+```
+
 ## Taxonomic assignment
 
 Taxonomic assignement with <em>CREST4</em>
