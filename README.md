@@ -113,7 +113,7 @@ for bc in barcode*
 done
 ```
 
-python
+```python
 
 fasta = 'TestFASTA.fasta'
 output = 'output.csv'
@@ -131,6 +131,8 @@ out_lines.append(temp_line)
 
 with open(output, 'w') as fp_out:
     fp_out.write('id,sequence' + '\n'.join(out_lines))
+    
+ ```
 
 ## Clustering
 
