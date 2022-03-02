@@ -82,36 +82,30 @@ done
 
 ## Conversion to .csv
 
-```{r}
-setwd("C:/Users/pascalh/Documents")
-input <- readLines("barcode12_concatenated.fasta")
-output <- file("barcode12_output.csv","w")
+~~setwd("C:/Users/pascalh/Documents")<br>
+input <- readLines("barcode12_concatenated.fasta")<br>
+output <- file("barcode12_output.csv","w")<br>
+currentSeq <- 0<br>
+newLine <- 0<br>
+for(i in 1:length(input)) {<br>
+  if(strtrim(input[i], 1) == ">") {<br>
+    if(currentSeq == 0) {<br>
+      writeLines(paste(input[i],""), output, sep=",")<br>
+      currentSeq <- currentSeq + 1<br>
+    } else {<br>
+      writeLines(paste("\n",input[i],"", sep =""), output, sep=",")<br>
+    }<br>
+  } else {<br>
+    writeLines(paste(input[i]), output, sep="")<br>
+  }<br>
+}<br>
+close(output)~~<br>
+\
+~~for bc in barcode*<br>
+    do<br>
+    sed -i '1s/^/id,sequence\n/' "$bc"_output.csv #add column names 'id' and 'sequence'<br>
+done~~<br>
 
-currentSeq <- 0
-newLine <- 0
-
-for(i in 1:length(input)) {
-  if(strtrim(input[i], 1) == ">") {
-    if(currentSeq == 0) {
-      writeLines(paste(input[i],""), output, sep=",")
-      currentSeq <- currentSeq + 1
-    } else {
-      writeLines(paste("\n",input[i],"", sep =""), output, sep=",")
-    }
-  } else {
-    writeLines(paste(input[i]), output, sep="")
-  }
-}
-
-close(output)
-```
-
-``` bash
-for bc in barcode*
-    do
-    sed -i '1s/^/id,sequence\n/' "$bc"_output.csv #add column names 'id' and 'sequence'
-done
-```
 
 ```python
 
