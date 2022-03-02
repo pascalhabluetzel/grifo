@@ -174,6 +174,7 @@ Python by Els
 csv = 'output.csv'
 output = 'outputFASTA.fasta'
 
+
 out_lines = []
 temp_line = ''
 with open(csv, 'r') as csv:
@@ -185,7 +186,7 @@ with open(csv, 'r') as csv:
 out_lines.append(temp_line)
 
 with open(output, 'w') as csv_out:
-    csv_out.write('\n'.join(out_lines))
+    csv_out.write(''.join(out_lines)[12:])
 ```
 
 ## Taxonomic assignment
