@@ -19,6 +19,13 @@ pip install hdbscan         # for clustering
 pip install spoa            # for clustering
 ```
 
+## Configuration file
+
+Parameters:<br>
+- Flowcell type
+- Library preparation (or list with sample barcodes)
+- 
+
 ## Basecalling
 
 Basecalling with <em>guppy</em>. Specify flow cell type and sequencing kit.
