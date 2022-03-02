@@ -144,6 +144,6 @@ Taxonomic assignement with <em>CREST4</em>
 ``` bash
 for bc in barcode*
     do
-    crest4 -f $bc".fasta -d bold
+    crest4 -f "$bc".fasta -d bold
 done
 ```
