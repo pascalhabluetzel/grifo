@@ -113,6 +113,25 @@ for bc in barcode*
 done
 ```
 
+python
+
+fasta = 'TestFASTA.fasta'
+output = 'output.csv'
+
+out_lines = []
+temp_line = ''
+with open(fasta, 'r') as fp:
+    for line in fp:
+        if line.startswith('>'):
+            out_lines.append(temp_line)
+            temp_line = line.strip() + ','
+        else:
+            temp_line += line.strip()
+out_lines.append(temp_line)
+
+with open(output, 'w') as fp_out:
+    fp_out.write('id,sequence' + '\n'.join(out_lines))
+
 ## Clustering
 
 Clustering with <em>ashure</em>
