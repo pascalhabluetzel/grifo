@@ -23,7 +23,7 @@ pip install spoa            # for clustering
 
 Parameters:<br>
 - Flowcell type
-- Library preparation (or list with sample barcodes)
+- Library preparation kit (or list with sample barcodes)
 - Locus (16S, 18S, ITS, COI, etc.)
 - Quality filtering cut-off
 - Expected length of the sequences (min, max)
