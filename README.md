@@ -33,7 +33,9 @@ Parameters:<br>
 
 ## Basecalling
 
-Basecalling with <em>guppy</em>. Specify flow cell type and sequencing kit.
+Basecalling with <em>guppy</em>. Specify flow cell type and sequencing kit.<br>
+Input: fast5 files<br>
+Output: fastq files
 
 ``` bash
 mkdir ./results/basecalling/
@@ -42,7 +44,9 @@ mkdir ./results/basecalling/
 
 ## Demultiplexing
 
-Demultiplexing with <em>qcat</em>
+Demultiplexing with <em>qcat</em><br>
+Input: fastq files<br>
+Output: fastq files split in different folders by sample barcode
 
 ``` bash
 mkdir ./results/demultiplexing/
@@ -51,7 +55,9 @@ cat ./results/basecalling/*.fastq.gz | qcat -b ./results/demultiplexing/
 
 ## Quality control and filtering
 
-Filtering with <em>nanofilt</em>
+Filtering with <em>nanofilt</em><br>
+Input: unfiltered fastq files<br>
+Output: filtered fastq files
 
 ``` bash
 mkdir ./results/qc/
@@ -70,6 +76,9 @@ done
 ```
 
 ## Concatenate
+
+Input: multiple fastq files<br>
+Output: a single fasta file
 
 ``` bash
 cd ./results/qc/
