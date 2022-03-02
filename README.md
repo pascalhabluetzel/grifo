@@ -137,6 +137,16 @@ dna = DNAStringSet(seq)
 writeXStringSet(dna, "barcode12.fasta")
 ```
 
+something like this in Python:
+
+```
+lines = open("input.csv").readlines()
+
+for line in lines:
+    cols = line.split("\t")
+    print(">"+cols[0]+"\n"+cols[1])
+```
+
 ## Taxonomic assignment
 
 Taxonomic assignement with <em>CREST4</em>
