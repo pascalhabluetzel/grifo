@@ -171,25 +171,25 @@ for line in lines:
     print(">"+cols[0]+"\n"+cols[1])
 ```
 
-Python by Els
+Python by Els - updated
 
 ```python
-csv = 'output.csv'
-output = 'outputFASTA.fasta'
+csv = 'TestCSV.csv'
+output = 'outputFASTA2.fasta'
 
 
 out_lines = []
 temp_line = ''
 with open(csv, 'r') as csv:
     for line in csv:
-        cols = line.split(",")
+        cols = line.split("\t")
         out_lines.append(temp_line)
-        temp_line = cols[0] + "\n" + cols[1]
+        temp_line = ">" + cols[0] + "\n" + cols[1] + "\n"
 
 out_lines.append(temp_line)
 
 with open(output, 'w') as csv_out:
-    csv_out.write(''.join(out_lines)[12:])
+    csv_out.write(''.join(out_lines)[13:])
 ```
 
 ## Taxonomic assignment
