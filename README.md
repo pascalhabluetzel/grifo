@@ -1,6 +1,6 @@
 ### To do list
 
-- Write a bash or python code for what is now written in R (conversions between csv and fasta formats).
+- Write a bash or python code for what is now written in R (conversions between csv and fasta formats). - Done
 - Write code to make an OTU table.
 - Generalize basecalling and demultiplexing for most popular library preparation protocols.
 - Make a configuration file
