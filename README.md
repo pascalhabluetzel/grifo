@@ -31,6 +31,26 @@ Parameters:<br>
 - Number of iterations for clustering
 - Reference database
 
+## Check input files
+ 
+``` bash
+#!/bin/bash
+
+file_count=$(find . -name "*.fastq.gz" | wc -l)
+fast5_count=$(find . -name "*.fast5" | wc -l)
+
+if [ $file_count -gt 0 ]
+then
+                echo "found $file_count fasta files, initiating filtering"
+elif [ $fast5_count -gt 0 ]
+then
+        echo  "found $fast5_count fast5 files, initiating base calling"
+else
+        echo "no input data"
+fi
+```
+
+
 ## Basecalling
 
 Basecalling with <em>guppy</em>. Specify flow cell type and sequencing kit.<br>
