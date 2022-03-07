@@ -44,7 +44,7 @@ fast5_count=$(find . -name "*.fast5" | wc -l)
 
 if [ $file_count -gt 0 ]
 then
-                echo "found $file_count fasta files, initiating filtering"
+                echo "found $file_count g-zipped fastq files, initiating filtering"
 elif [ $fast5_count -gt 0 ]
 then
         echo  "found $fast5_count fast5 files, initiating base calling"
