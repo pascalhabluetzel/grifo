@@ -25,31 +25,99 @@ pip install spoa            # for clustering
 Parameters:<br>
 
 ``` bash
-flow_cell = "FLO-MIN106"
-library_kit = "SQK-PSK004"
-locus = "COI" # "COI", "18S", "16S", "ITS", "rbcl"
-quality_filtering = "8" # minimum quality score for Nanofilt
-minimum_length = "600" # minimum sequence length
-maximum_length = "800" # maximum sequence length
-nit = "10" # number of iterations for the clustering algorithm
+flow_cell="FLO-MIN106"
+library_kit="SQK-PSK004"
+locus="COI" # "COI", "18S", "16S", "ITS", "rbcl"
+quality_filtering="8" # minimum quality score for Nanofilt
+minimum_length="600" # minimum sequence length
+maximum_length="800" # maximum sequence length
+nit="10" # number of iterations for the clustering algorithm
+```
+
+## Doing checks on the data and environment
+
+``` bash
+#!/bin/bash
+
+set -e # e=Exit immediately if a command exits with a non-zero exit status
+start=$SECONDS
+
+display_usage() {
+   echo ""
+   echo "
+¦¦¦¦¦¦  ¦¦¦¦¦¦  ¦¦  ¦¦¦¦¦  ¦¦¦¦¦
+¦¦   ¦¦ ¦¦   ¦¦ ¦¦ ¦¦     ¦¦   ¦¦
+¦¦¦¦¦¦  ¦¦¦¦¦¦  ¦¦ ¦¦     ¦¦   ¦¦
+¦¦   ¦¦ ¦¦   ¦¦ ¦¦ ¦¦     ¦¦   ¦¦
+¦¦¦¦¦¦  ¦¦   ¦¦ ¦¦  ¦¦¦¦¦  ¦¦¦¦¦
+   "
+   echo "Description: Brico: a tool for taxonomic assignment of nanopore metabarcoding sequences."
+   echo "Usage: bash $0 -s my_sequences.fasta"
+   echo -e "\t -s \t Path to the sequence file. The file need to be in .fasta format."
+   echo -e "\t -t \t Number of threads to be used."
+   echo -e "\t -h \t How to use BRICO"
+   echo -e "\n"
+   echo -e "Example:"
+   echo -e "./brico -s my_sequences.fasta"
+}
+
+while getopts "hs:t:" arg
+    do
+     case $arg in
+        h)
+          display_usage
+          exit
+          ;;
+        s) 
+          sample=${OPTARG}
+          ;;
+        t)
+          threads=${OPTARG}
+          ;;
+     esac
+done
+
+shift $((OPTIND-1)) # Removes all the options that have been parsed by getopts from the parameters list
+
+# Check whether input is in the right format
+    if ! [[ "${sample}" = *.fasta ]]
+    then
+        printf "\nERROR: -s: BRICO needs sequences in .fasta format as input."
+        display_usage
+        exit 1
+    fi
+
+# Set default value for the number of threads to 1
+    if [ -z "${threads}" ]
+    then
+        threads=1
+    fi
+
+# Load the configuration file
+source ./*.cfg
 ```
 
 ## Check input files
  
 ``` bash
-#!/bin/bash
-
-file_count=$(find . -name "*.fastq.gz" | wc -l)
+fastq_count=$(find . -name "*.fastq.gz" | wc -l)
+fastq_dir=$(find . -type f -name "*.fastq.gz" | sed -r 's|/[^/]+$||' |sort |uniq)
 fast5_count=$(find . -name "*.fast5" | wc -l)
+fast5_dir=$(find . -type f -name "*.fast5" | sed -r 's|/[^/]+$||' |sort |uniq)
 
-if [ $file_count -gt 0 ]
+if [ $fastq_count -gt 0 ]
 then
-                echo "found $file_count g-zipped fastq files, initiating filtering"
+      echo "found $fastq_count g-zipped fastq files in $fastq_dir, initiating filtering"
 elif [ $fast5_count -gt 0 ]
 then
-        echo  "found $fast5_count fast5 files, initiating base calling"
+      echo  "found $fast5_count fast5 files in $fast5_dir, initiating base calling"
+      for val in $fast5_dir
+      do
+      mkdir -p ./results/basecalling/$val
+      /opt/ont-guppy-cpu_3.0.3/bin/guppy_basecaller -i .$val/ -s ./results/basecalling/$val --flowcell $flow_cell --kit $library_kit
+      done
 else
-        echo "no input data"
+      echo "\nERROR: BRICO needs sequences in .fast5 or .fastq format as input."
 fi
 ```
 
