@@ -62,7 +62,7 @@ Output: fastq files
 
 ``` bash
 mkdir ./results/basecalling/
-/opt/ont-guppy-cpu_3.0.3/bin/guppy_basecaller -i ./data/ -s ./results/basecalling/ --flowcell FLO-MIN106 --kit SQK-PSK004
+/opt/ont-guppy-cpu_3.0.3/bin/guppy_basecaller -i ./data/ -s ./results/basecalling/ --flowcell $flow_cell --kit $library_kit
 ```
 
 ## Demultiplexing
