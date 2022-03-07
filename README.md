@@ -23,13 +23,16 @@ pip install spoa            # for clustering
 ## Configuration file
 
 Parameters:<br>
-- Flowcell type
-- Library preparation kit (or list with sample barcodes)
-- Locus (16S, 18S, ITS, COI, etc.)
-- Quality filtering cut-off
-- Expected length of the sequences (min, max)
-- Number of iterations for clustering
-- Reference database
+
+``` bash
+flow_cell = "FLO-MIN106"
+library_kit = "SQK-PSK004"
+locus = "COI" # "COI", "18S", "16S", "ITS", "rbcl"
+quality_filtering = "8" # minimum quality score for Nanofilt
+minimum_length = "600" # minimum sequence length
+maximum_length = "800" # maximum sequence length
+nit = "10" # number of iterations for the clustering algorithm
+```
 
 ## Check input files
  
