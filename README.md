@@ -1,9 +1,9 @@
 ### To do list
 
 - Write a bash or python code for what is now written in R (conversions between csv and fasta formats). - Done
-- Write code to make an OTU table.
+- Write code to make an OTU table. - see "OTU table"
 - Generalize basecalling and demultiplexing for most popular library preparation protocols.
-- Make a configuration file
+- Make a configuration file. - Done
 
 # BRICO
 BRICO is an analysis pipeline for nanopore metabarcoding sequence data.
@@ -291,5 +291,16 @@ Taxonomic assignement with <em>CREST4</em>
 for bc in barcode*
     do
     crest4 -f "$bc".fasta -d bold
+done
+```
+
+## OTU table
+
+Use minimap2 to align all sequences with the cluster centroids. Calculate a mapping percentage by dividing column 10 of the .paf file by column 11. If there are different matches for forward and reverse version of the sequence, remove the one with the smaller mapping percentage. Remove all sequences with a mapping percentage below a specific value (e.g. 0.9). Count the occurrence of each cluster in column 6. Merge this information with the best blast hit for each cluster. The resulting table has 4 columns: cluster number, number of reads, alignment percentage with reference database (SILVA, BOLD, etc.), taxonomic assignment.
+
+``` bash
+for dir in $fastq_dir
+    do
+    minimap2 -c --cs "${dir##*/}"_clusters.fasta $wkdir/results/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz > "${dir##*/}".paf
 done
 ```
