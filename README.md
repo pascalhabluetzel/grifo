@@ -303,4 +303,56 @@ for dir in $fastq_dir
     do
     minimap2 -c --cs "${dir##*/}"_clusters.fasta $wkdir/results/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz > "${dir##*/}".paf
 done
+
+fasta_to_csv () {
+    PYCMD=$(cat <<EOF
+
+import pandas
+
+df_assignments = pandas.read_csv("assignments.txt", header=None, sep='\t')
+df_assignments.columns = ['k', 'taxon']
+df_paf = pandas.read_csv("results.paf", header=None, sep='\t')
+df_paf = df_paf.iloc[:, [0, 5, 9, 10]]
+df_paf.columns = ['read', 'cluster', 'value1', 'value2']
+
+df_paf['percentage'] = ( df_paf['value1'].T / df_paf['value2'] ).T
+
+result0 = df_paf.sort_values(by=['percentage'], ascending=False)
+result0.read.duplicated()
+result = result0.drop_duplicates(subset=['read'], keep='first')
+x = result['cluster'].value_counts()
+print(x)
+y = pandas.DataFrame(x)
+
+y['count'] = y.index
+y.columns=['cluster', 'k']
+
+with open('search.hits', 'r') as reader:
+    # Note: readlines doesn't trim the line endings
+    text = reader.readlines()
+with open('search.hist.mod', 'w') as writer:
+    for line in text:
+        if (line.startswith('c')):
+            writer.write(line)
+
+df_hits = pandas.read_csv("search.hist.mod", header=None, sep='\t')
+df_hits.columns = ['k', 'hit', 'score', 'alignment', 'match']
+clean_hits = df_hits.drop_duplicates(subset=['k'], keep='first')
+clean_hits['percentage'] = (clean_hits['match'].T / clean_hits['alignment']).T
+
+a = pandas.merge(df_assignments, y, on=['k'])
+results = pandas.merge(a, clean_hits, on=['k'])
+
+results.to_csv("results.tsv", sep='\t')
+
+EOF
+    )
+
+    python3 -c "$PYCMD"
+}
+OTU_cleanup
+
 ```
+
+
+
