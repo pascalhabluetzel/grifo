@@ -305,7 +305,7 @@ for dir in $fastq_dir
     minimap2 -c --cs "${dir##*/}"_clusters.fasta $wkdir/results/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz > "${dir##*/}".paf
 done
 
-fasta_to_csv () {
+OTU_cleanup () {
     PYCMD=$(cat <<EOF
 
 import pandas
