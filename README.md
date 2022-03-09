@@ -25,13 +25,14 @@ pip install spoa            # for clustering
 Parameters:<br>
 
 ``` bash
+demultiplexed="yes" # 'yes' or 'no'
 flow_cell="FLO-MIN106"
 library_kit="SQK-PSK004"
-locus="COI" # "COI", "18S", "16S", "ITS", "rbcl"
-quality_filtering="8" # minimum quality score for Nanofilt
 minimum_length="600" # minimum sequence length
 maximum_length="800" # maximum sequence length
-nit="10" # number of iterations for the clustering algorithm
+qscore="8"
+niter="3"
+locus="COI"
 ```
 
 ## Doing checks on the data and environment
