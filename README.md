@@ -52,7 +52,7 @@ display_usage() {
 ¦¦   ¦¦ ¦¦   ¦¦ ¦¦ ¦¦     ¦¦   ¦¦
 ¦¦¦¦¦¦  ¦¦   ¦¦ ¦¦  ¦¦¦¦¦  ¦¦¦¦¦
    "
-   echo "Description: Brico: a tool for taxonomic assignment of nanopore metabarcoding sequences."
+   echo "Description: Brico: a workflow for taxonomic assignment of nanopore metabarcoding sequences."
    echo "Usage: bash $0 -s my_sequences.fasta"
    echo -e "\t -s \t Path to the sequence file. The file need to be in .fasta format."
    echo -e "\t -t \t Number of threads to be used."
