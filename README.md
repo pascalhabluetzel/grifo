@@ -1,9 +1,9 @@
 ### To do list
 
-- ~~Write a bash or python code for what is now written in R (conversions between csv and fasta formats). - Done
-- ~~Write code to make an OTU table. - Done
+- ~~Write a bash or python code for what is now written in R (conversions between csv and fasta formats). - Done~~
+- ~~Write code to make an OTU table. - Done~~
 - Generalize basecalling and demultiplexing for most popular library preparation protocols.
-- ~~Make a configuration file. - Done
+- ~~Make a configuration file. - Done~~
 - Make a log file.
 - Clean up result-files per sample in a folder called "intermediate results".
 - Integrate DARN.
