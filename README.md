@@ -40,8 +40,24 @@ locus="COI"
 ``` bash
 #!/bin/bash
 
-#set -e # e=Exit immediately if a command exits with a non-zero exit status
+#*********************************************************************************#
+#                                                                                 #
+# BRICO is a workflow to process ONT data from begin to end. It takes fast5 input #
+# and produces OTU abundance tables                                               #
+#                                                                                 #
+# Developer and maintainer: Pascal Habluetzel and Els De Keyzer                   #
+# e-mail: pascal.hablutzel@vliz.be                                                #
+#         els.de.keyzer@uantwerpen.be                                             #
+#                                                                                 #
+#*********************************************************************************#
+
+#set -e # e=Exit immediately if a command exits with a non-zero exit status; CREST4 produces a non-zero exit. Command can therefore not be used.
+
 start=$SECONDS
+
+# Safe working and results directory
+wkdir=$(pwd)
+resultsdir="results-"$(date +%F-%R)""
 
 display_usage() {
    echo ""
@@ -53,24 +69,20 @@ display_usage() {
 ¦¦¦¦¦¦  ¦¦   ¦¦ ¦¦  ¦¦¦¦¦  ¦¦¦¦¦
    "
    echo "Description: Brico: a workflow for taxonomic assignment of nanopore metabarcoding sequences."
-   echo "Usage: bash $0 -s my_sequences.fasta"
-   echo -e "\t -s \t Path to the sequence file. The file need to be in .fasta format."
+   echo "Usage: ./brico.sh"
    echo -e "\t -t \t Number of threads to be used."
    echo -e "\t -h \t How to use BRICO"
    echo -e "\n"
    echo -e "Example:"
-   echo -e "./brico -s my_sequences.fasta"
+   echo -e "./brico"
 }
 
-while getopts "hs:t:" arg
+while getopts "ht:" arg
     do
      case $arg in
         h)
           display_usage
           exit
-          ;;
-        s) 
-          sample=${OPTARG}
           ;;
         t)
           threads=${OPTARG}
@@ -80,14 +92,6 @@ done
 
 shift $((OPTIND-1)) # Removes all the options that have been parsed by getopts from the parameters list
 
-# Check whether input is in the right format
-    if ! [[ "${sample}" = *.fasta ]]
-    then
-        printf "\nERROR: -s: BRICO needs sequences in .fasta format as input."
-        display_usage
-        exit 1
-    fi
-
 # Set default value for the number of threads to 1
     if [ -z "${threads}" ]
     then
@@ -96,13 +100,12 @@ shift $((OPTIND-1)) # Removes all the options that have been parsed by getopts f
 
 # Load the configuration file
 source ./*.cfg
-
-# Safe working directory
-wkdir=$(pwd)
 ```
 
 ## Check input files
- 
+
+BRICO looks for the input files only in the ./data/ folder to avoid that it finds the sequences in the results folder. Make sure the data is in a folder called ./data/
+
 ``` bash
 if [ $demultiplexed = yes ]
 then
@@ -110,10 +113,10 @@ then
 elif [ $demultiplexed != yes ]
 then
       echo "Check input file type."
-      fastq_count=$(find . -name "*.fastq.gz" | wc -l)
-      fastq_dir=$(find . -type f -name "*.fastq.gz" | sed -r 's|/[^/]+$||' |sort |uniq)
-      fast5_count=$(find . -name "*.fast5" | wc -l)
-      fast5_dir=$(find . -type f -name "*.fast5" | sed -r 's|/[^/]+$||' |sort |uniq)
+      fastq_count=$(find ./data/ -name "*.fastq.gz" | wc -l)
+      fastq_dir=$(find ./data/ -type f -name "*.fastq.gz" | sed -r 's|/[^/]+$||' |sort |uniq)
+      fast5_count=$(find ./data/ -name "*.fast5" | wc -l)
+      fast5_dir=$(find ./data/ -type f -name "*.fast5" | sed -r 's|/[^/]+$||' |sort |uniq)
 elif [ $fastq_count -gt 0 ]
 then
       echo "found $fastq_count g-zipped fastq files in $fastq_dir, initiating filtering"
@@ -122,8 +125,8 @@ then
       echo  "found $fast5_count fast5 files in $fast5_dir, initiating base calling"
       for val in $fast5_dir
       do
-      mkdir -p ./results/basecalling/$val
-      /opt/ont-guppy-cpu_3.0.3/bin/guppy_basecaller -i .$val/ -s ./results/basecalling/$val --flowcell $flow_cell --kit $library_kit
+      mkdir -p ./$resultsdir/basecalling/$val
+      /opt/ont-guppy-cpu_3.0.3/bin/guppy_basecaller -i .$val/ -s ./$resultsdir/basecalling/$val --flowcell $flow_cell --kit $library_kit
       done
 else
       echo "\nERROR: BRICO needs sequences in .fast5 or .fastq format as input."
@@ -138,22 +141,22 @@ Output: filtered fastq files
 
 ``` bash
 echo "Start filtering..."
-fastq_dir=$(find . -type f -name "*.fastq.gz" | sed -r 's|/[^/]+$||' |sort |uniq)
+fastq_dir=$(find ./data/ -type f -name "*.fastq.gz" | sed -r 's|/[^/]+$||' |sort |uniq)
 echo $fastq_dir
 for dir in $fastq_dir
       do
       echo "Filtering ${dir##*/}..."
-      mkdir -p ./results/qc/"${dir##*/}"
+      mkdir -p ./$resultsdir/qc/"${dir##*/}"
       cd $dir
         for fastq in *.fastq.gz
             do
             echo $(pwd)/"$fastq"
-            gunzip -c "$fastq" | NanoFilt --length $minimum_length --maxlength $maximum_length -q $qscore | gzip > $wkdir/results/qc/"${dir##*/}"/"$fastq"
+            gunzip -c "$fastq" | NanoFilt --length $minimum_length --maxlength $maximum_length -q $qscore | gzip > $wkdir/$resultsdir/qc/"${dir##*/}"/"$fastq"
         done
-      cat $wkdir/results/qc/"${dir##*/}"/*.fastq.gz > $wkdir/results/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz
-      gunzip $wkdir/results/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz
-      sed -n '1~4s/^@/>/p;2~4p' $wkdir/results/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq > $wkdir/"${dir##*/}"_concatenated.fasta
-      gzip $wkdir/results/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq
+      cat $wkdir/$resultsdir/qc/"${dir##*/}"/*.fastq.gz > $wkdir/$resultsdir/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz
+      gunzip $wkdir/$resultsdir/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz
+      sed -n '1~4s/^@/>/p;2~4p' $wkdir/$resultsdir/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq > $wkdir/"${dir##*/}"_concatenated.fasta
+      gzip $wkdir/$resultsdir/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq
       cd $wkdir
 done
 ```
@@ -189,7 +192,7 @@ EOF
 }
 fasta_to_csv
 mv output.csv $wkdir/"${dir##*/}"_concatenated.csv
-done  
+done 
  ```
 
 ## Clustering
@@ -234,6 +237,9 @@ EOF
 csv_to_fasta
 mv output_clusters.fasta $wkdir/"${dir##*/}"_clusters.fasta
 done 
+
+rm -r __pycache__; rm input_clusters.csv; rm input.fasta
+mv ashure.log ./$resultsdir/ashure.log
 ```
 
 ## Taxonomic assignment
@@ -264,9 +270,9 @@ cd $wkdir
 
 for dir in $fastq_dir
     do
-    mv "${dir##*/}"_clusters.fasta.crest4/search.hits ./
-    mv "${dir##*/}"_clusters.fasta.crest4/assignments.txt ./
-    minimap2 -c --cs "${dir##*/}"_clusters.fasta $wkdir/results/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz > results.paf
+    cp "${dir##*/}"_clusters.fasta.crest4/search.hits ./
+    cp "${dir##*/}"_clusters.fasta.crest4/assignments.txt ./
+    minimap2 -c --cs "${dir##*/}"_clusters.fasta $wkdir/$resultsdir/qc/"${dir##*/}"/"${dir##*/}"_concatenated.fastq.gz > results.paf
 
 OTU_cleanup () {
     PYCMD=$(cat <<EOF
@@ -291,6 +297,8 @@ y = pandas.DataFrame(x)
 y['count'] = y.index
 y.columns=['cluster', 'k']
 
+
+
 with open('search.hits', 'r') as reader:
     # Note: readlines doesn't trim the line endings
     text = reader.readlines()
@@ -304,8 +312,8 @@ df_hits.columns = ['k', 'hit', 'score', 'alignment', 'match']
 clean_hits = df_hits.drop_duplicates(subset=['k'], keep='first')
 clean_hits['percentage'] = (clean_hits['match'].T / clean_hits['alignment']).T
 
-a = pandas.merge(df_assignments, y, on=['k'])
-results = pandas.merge(a, clean_hits, on=['k'])
+a = pandas.merge(y, clean_hits, on=['k'])
+results = pandas.merge(a, df_assignments, on=['k'])
 
 results.to_csv("results.tsv", sep='\t')
 
@@ -316,7 +324,17 @@ EOF
 }
 OTU_cleanup
 
-    mv results.tsv "${dir##*/}"_OTU_table.tsv
+rm assignments.txt search.hits
+mv results.paf ./$resultsdir/results.paf
+
+    mv results.tsv ./$resultsdir/"${dir##*/}"_OTU_table.tsv
+done
+
+for dir in $fastq_dir
+    do
+    mv $wkdir/"${dir##*/}"_clusters.fasta.crest4/ $resultsdir/
+    mv $wkdir/"${dir##*/}"_clusters.fasta $resultsdir/
+    mv $wkdir/"${dir##*/}"_concatenated.csv $resultsdir/
 done
 ```
 
@@ -325,7 +343,7 @@ done
 ``` bash
 end=$SECONDS
 duration=$(( end - start ))
-echo "All good! It took BRICO $(($duration/3600)) h $(($duration/60)) min $(($duration%60)) sec to complete the job."
+echo "All good! It took BRICO $(($duration/3600)) hours, $(($duration/60)) minutes and $(($duration%60)) seconds to complete the job."
 ```
 
 
