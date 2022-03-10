@@ -346,6 +346,7 @@ done
 # Finalize
 
 ``` bash
+cp ./*.cfg ./$resultsdir/*.cfg # Copy the config file into the results folder for documentation.
 end=$SECONDS
 duration=$(( end - start ))
 echo "All good! It took BRICO $(($duration/3600)) hours, $(($duration/60)) minutes and $(($duration%60)) seconds to complete the job."
