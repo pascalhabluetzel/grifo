@@ -10,6 +10,7 @@
 - Add species names of closest matches.
 - Allow for costum reference databases.
 - Check whether connection can be made to BOLDigger.
+- Output in Darwin Core Archive format.
 
 # BRICO
 BRICO is an analysis pipeline for nanopore metabarcoding sequence data.
