@@ -13,8 +13,8 @@
 - Output in Darwin Core Archive format.
 
 # BRICO
-BRICO is an analysis pipeline for nanopore metabarcoding sequence data.
-The name of the pipeline is derived of the French verb <em>bricoler</em> (to cobble sth) and describes how it integrates existing tools into a new pipeline.
+BRICO is a versatile pipeline for environmental metabarcoding using nanopore sequences with density based clustering for error correction and other utilities.
+The name is derived of the legendary creature <em>grifo</em> (Esperanto, Spanish, Old High German; Engl.: griffin) which is partly eagle, lion and deer. The name describes how the pipeline integrates existing tools into a new workflow.
 
 ## Dependencies
 
