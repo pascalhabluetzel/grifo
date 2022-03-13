@@ -52,7 +52,7 @@ locus="COI"
 # GRIFO is a workflow to process ONT data from begin to end. It takes fast5 input #
 # and produces OTU abundance tables                                               #
 #                                                                                 #
-# Developer and maintainer: Pascal Habluetzel and Els De Keyzer                   #
+# Developers and maintainers: Pascal Habluetzel and Els De Keyzer                   #
 # e-mail: pascal.hablutzel@vliz.be                                                #
 #         els.de.keyzer@uantwerpen.be                                             #
 #                                                                                 #
