@@ -12,13 +12,13 @@
 - Check whether connection can be made to BOLDigger.
 - Output in Darwin Core Archive format.
 
-# BRICO
-BRICO is a versatile pipeline for environmental metabarcoding using nanopore sequences with density based clustering for error correction and other utilities.
+# GRIFO
+GRIFO is a versatile pipeline for environmental metabarcoding using nanopore sequences with density based clustering for error correction and other utilities.
 The name is derived of the legendary creature <em>grifo</em> (Esperanto, Spanish, Old High German; Engl.: griffin) which is partly eagle, lion and deer. The name describes how the pipeline integrates existing tools into a new workflow.
 
 ## Dependencies
 
-Brico uses the clustering module of <em>ashure</em>, which itself relies on the following tools:
+GRIFO uses the clustering module of <em>ashure</em>, which itself relies on the following tools:
 
 ``` bash
 pip install pandas          # for organizing underlying data
@@ -49,7 +49,7 @@ locus="COI"
 
 #*********************************************************************************#
 #                                                                                 #
-# BRICO is a workflow to process ONT data from begin to end. It takes fast5 input #
+# GRIFO is a workflow to process ONT data from begin to end. It takes fast5 input #
 # and produces OTU abundance tables                                               #
 #                                                                                 #
 # Developer and maintainer: Pascal Habluetzel and Els De Keyzer                   #
@@ -75,13 +75,13 @@ display_usage() {
 ¦¦   ¦¦ ¦¦   ¦¦ ¦¦ ¦¦     ¦¦   ¦¦
 ¦¦¦¦¦¦  ¦¦   ¦¦ ¦¦  ¦¦¦¦¦  ¦¦¦¦¦
    "
-   echo "Description: Brico: a workflow for taxonomic assignment of nanopore metabarcoding sequences."
-   echo "Usage: ./brico.sh"
+   echo "Description: GRIFO: a workflow for taxonomic assignment of nanopore metabarcoding sequences."
+   echo "Usage: ./grifo.sh"
    echo -e "\t -t \t Number of threads to be used."
-   echo -e "\t -h \t How to use BRICO"
+   echo -e "\t -h \t How to use GRIFO"
    echo -e "\n"
    echo -e "Example:"
-   echo -e "./brico"
+   echo -e "./grifo"
 }
 
 while getopts "ht:" arg
@@ -111,7 +111,7 @@ source ./*.cfg
 
 ## Check input files
 
-BRICO looks for the input files only in the ./data/ folder to avoid that it finds the sequences in the results folder. Make sure the data is in a folder called ./data/
+GRIFO looks for the input files only in the ./data/ folder to avoid that it finds the sequences in the results folder. Make sure the data is in a folder called ./data/
 
 ``` bash
 if [ $demultiplexed = yes ]
@@ -351,7 +351,7 @@ done
 cp ./*.cfg ./$resultsdir/*.cfg # Copy the config file into the results folder for documentation.
 end=$SECONDS
 duration=$(( end - start ))
-echo "All good! It took BRICO $(($duration/3600)) hours, $(($duration/60)) minutes and $(($duration%60)) seconds to complete the job."
+echo "All good! It took GRIFO $(($duration/3600)) hours, $(($duration/60)) minutes and $(($duration%60)) seconds to complete the job."
 ```
 
 
