@@ -136,7 +136,7 @@ then
       /opt/ont-guppy-cpu_3.0.3/bin/guppy_basecaller -i .$val/ -s ./$resultsdir/basecalling/$val --flowcell $flow_cell --kit $library_kit
       done
 else
-      echo "\nERROR: BRICO needs sequences in .fast5 or .fastq format as input."
+      echo "\nERROR: GRIFO needs sequences in .fast5 or .fastq format as input."
 fi
 ```
 
