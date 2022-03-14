@@ -39,7 +39,7 @@ minimum_length="600" # minimum sequence length
 maximum_length="800" # maximum sequence length
 qscore="8"
 niter="3"
-locus="COI"
+locus="COI" # 'COI', '18S' or '16S'
 ```
 
 ## Doing checks on the data and environment
