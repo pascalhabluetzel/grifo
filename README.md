@@ -5,12 +5,14 @@
 - Generalize basecalling and demultiplexing for most popular library preparation protocols.
 - ~~Make a configuration file. - Done~~
 - Make a log file.
+- Add a chimera removal step.
 - Clean up result-files per sample in a folder called "intermediate results".
 - Integrate DARN.
 - Add species names of closest matches.
 - Allow for costum reference databases.
 - Check whether connection can be made to BOLDigger.
 - Output in Darwin Core Archive format.
+- Add rdp-classifier as an option.
 
 # GRIFO
 GRIFO is a versatile pipeline for environmental metabarcoding using nanopore sequences with density based clustering for error correction and other utilities.
