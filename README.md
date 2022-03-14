@@ -15,6 +15,7 @@
 - Add rdp-classifier as an option.
 - Add grade-index.
 - Make a choice of whether or not to keep intermediate results.
+- Add 12S taxonomic assignment using rdp classifier.
 
 # GRIFO
 GRIFO is a versatile pipeline for environmental metabarcoding using nanopore sequences with density based clustering for error correction and other utilities.
