@@ -13,6 +13,8 @@
 - Check whether connection can be made to BOLDigger.
 - Output in Darwin Core Archive format.
 - Add rdp-classifier as an option.
+- Add grade-index.
+- Make a choice of whether or not to keep intermediate results.
 
 # GRIFO
 GRIFO is a versatile pipeline for environmental metabarcoding using nanopore sequences with density based clustering for error correction and other utilities.
