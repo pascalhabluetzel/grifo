@@ -349,7 +349,7 @@ echo "All good! It took GRIFO $(($duration/3600)) hours, $(($duration/60)) minut
 GRIFO makes use of several tools and datasets. Please cite them when using GRIFO.
 
 - CREST - https://github.com/lanzen/CREST
-- RDPClassifier - https://github.com/rdpstaff/classifier (RPDtools are required in order to execute RDPClassifier)
+- RDPClassifier - https://github.com/rdpstaff/classifier
 - SILVA db - https://www.arb-silva.de/no_cache/download/archive/current/Exports/
 - PR2 db - https://pr2-database.org/
 - ASHURE - https://github.com/BBaloglu/ASHURE
