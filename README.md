@@ -346,7 +346,7 @@ echo "All good! It took GRIFO $(($duration/3600)) hours, $(($duration/60)) minut
 
 # Citation
 
-GRIFO makes use of several tools and datasets. Please cite them when using GRIFO.
+GRIFO makes use of several tools and datasets from third parties. Please cite them when using GRIFO.
 
 - CREST - https://github.com/lanzen/CREST
 - RDPClassifier - https://github.com/rdpstaff/classifier
