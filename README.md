@@ -57,9 +57,9 @@ locus="COI" # 'COI', '18S' or '16S'
 # GRIFO is a workflow to process ONT data from begin to end. It takes fast5 input #
 # and produces OTU abundance tables                                               #
 #                                                                                 #
-# Developers and maintainers: Pascal Habluetzel and Els De Keyzer                   #
+# Developers and maintainers: Pascal Habluetzel and Els De Keyzer                 #
 # e-mail: pascal.hablutzel@vliz.be                                                #
-#         els.dekeyzer@uantwerpen.be                                             #
+#         els.de.keyzer@uantwerpen.be                                             #
 #                                                                                 #
 #*********************************************************************************#
 
@@ -74,11 +74,11 @@ resultsdir="results-"$(date +%F-%R)""
 display_usage() {
    echo ""
    echo "
-¦¦¦¦¦¦  ¦¦¦¦¦¦  ¦¦  ¦¦¦¦¦  ¦¦¦¦¦
+ ¦¦¦¦¦  ¦¦¦¦¦¦  ¦¦ ¦¦¦¦¦¦  ¦¦¦¦¦
+¦¦      ¦¦   ¦¦ ¦¦ ¦¦     ¦¦   ¦¦
+¦¦  ¦¦¦ ¦¦¦¦¦¦  ¦¦ ¦¦¦¦¦  ¦¦   ¦¦
 ¦¦   ¦¦ ¦¦   ¦¦ ¦¦ ¦¦     ¦¦   ¦¦
-¦¦¦¦¦¦  ¦¦¦¦¦¦  ¦¦ ¦¦     ¦¦   ¦¦
-¦¦   ¦¦ ¦¦   ¦¦ ¦¦ ¦¦     ¦¦   ¦¦
-¦¦¦¦¦¦  ¦¦   ¦¦ ¦¦  ¦¦¦¦¦  ¦¦¦¦¦
+ ¦¦¦¦¦  ¦¦   ¦¦ ¦¦ ¦¦      ¦¦¦¦¦
    "
    echo "Description: GRIFO: a workflow for taxonomic assignment of nanopore metabarcoding sequences."
    echo "Usage: ./grifo.sh"
@@ -86,7 +86,7 @@ display_usage() {
    echo -e "\t -h \t How to use GRIFO"
    echo -e "\n"
    echo -e "Example:"
-   echo -e "./grifo"
+   echo -e "./grifo.sh"
 }
 
 while getopts "ht:" arg
