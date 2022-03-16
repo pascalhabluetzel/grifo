@@ -346,13 +346,19 @@ echo "All good! It took GRIFO $(($duration/3600)) hours, $(($duration/60)) minut
 
 # Citation
 
-GRIFO makes use of several tools and datasets from third parties. Please cite them when using GRIFO.
+GRIFO makes use of several tools and datasets from third parties. Please cite them too when using GRIFO.
 
-- CREST - https://github.com/lanzen/CREST
-- RDPClassifier - https://github.com/rdpstaff/classifier
-- SILVA db - https://www.arb-silva.de/no_cache/download/archive/current/Exports/
-- PR2 db - https://pr2-database.org/
 - ASHURE - https://github.com/BBaloglu/ASHURE
+- BOLD - https://www.boldsystems.org/index.php/datarelease
+- BLAST - https://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs&DOC_TYPE=Download
+- CREST - https://github.com/lanzen/CREST
+- GUPPY - https://nanoporetech.com/
+- MINIMAP2 - https://github.com/lh3/minimap2
+- NANOFILT - https://github.com/wdecoster/nanofilt/
+- PR2 database - https://pr2-database.org/
+- QCAT - https://github.com/nanoporetech/qcat
+- RDPClassifier - https://github.com/rdpstaff/classifier
+- SILVA database - https://www.arb-silva.de/no_cache/download/archive/current/Exports/
 - eDNA dataset demonstrator - https://github.com/iobis/dataset-edna
 - VSEARCH-2.9.1 - https://github.com/torognes/vsearch/releases/tag/v2.9.1
 - ...
