@@ -1,6 +1,6 @@
 # GRIFO
 GRIFO is a versatile pipeline for environmental metabarcoding using nanopore sequences with density based clustering for error correction and other utilities.
-The name is derived of the legendary creature <em>grifo</em> (Esperanto, Spanish, Old High German; Engl.: griffin) which is partly eagle, lion and deer. The name describes how the pipeline integrates existing tools into a new workflow.
+The name is derived of the mythical creature <em>grifo</em> (Esperanto, Spanish, Old High German; Engl.: griffin) which is partly eagle, lion and deer. The name describes how the pipeline integrates existing tools into a new workflow.
 
 ## Dependencies
 
