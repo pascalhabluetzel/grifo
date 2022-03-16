@@ -1,4 +1,4 @@
-BRICO: An analysis pipeline for metabarcoding with nanopore sequences
+GRIFO: An analysis pipeline for metabarcoding with nanopore sequences
 
 Copyright (C) 2022, Pascal Habluetzel.
 All rights reserved.
@@ -24,4 +24,3 @@ GNU General Public License for more details.
 
 A copy of the GNU Lesser General Public License has been included
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
