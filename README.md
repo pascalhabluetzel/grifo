@@ -13,6 +13,10 @@ pip install hdbscan         # for clustering
 pip install spoa            # for clustering
 ```
 
+## Workflow
+
+![GRIFO workflow](https://github.com/pascalhabluetzel/grifo/blob/main/workflow.png "GRIFO workflow")
+
 ## Configuration file
 
 Parameters:<br>
