@@ -44,7 +44,7 @@ locus="COI" # 'COI', '18S' or '16S'
 #                                                                                 #
 # Developers and maintainers: Pascal Habluetzel and Els De Keyzer                 #
 # e-mail: pascal.hablutzel@vliz.be                                                #
-#         els.de.keyzer@uantwerpen.be                                             #
+#         els.dekeyzer@uantwerpen.be                                             #
 #                                                                                 #
 #*********************************************************************************#
 
