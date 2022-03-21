@@ -5,6 +5,8 @@ The name is derived of the mythical creature <em>grifo</em> (Esperanto) which is
 ## Usage
 
 GRIFO is under development. There is currently no user guide and source code is unstable and not even functional at times.
+Source code: https://github.com/pascalhabluetzel/grifo/blob/main/src/grifo.sh
+Config file: https://github.com/pascalhabluetzel/grifo/blob/main/src/grifo.cfg
 
 ## Dependencies
 
