@@ -6,6 +6,10 @@ The name is derived of the mythical creature <em>grifo</em> (Esperanto) which is
 
 GRIFO is under development. There is currently no user guide and source code is unstable and not even functional at times.
 
+Source code: https://github.com/pascalhabluetzel/grifo/blob/main/src/grifo.sh
+
+Config file: https://github.com/pascalhabluetzel/grifo/blob/main/src/grifo.cfg
+
 ## Dependencies
 
 GRIFO uses the clustering module of <em>ashure</em>, which itself relies on the following tools:
@@ -16,6 +20,8 @@ pip install scikit-learn    # for clustering
 pip install hdbscan         # for clustering
 pip install spoa            # for clustering
 ```
+
+Other depencies are: qcat, nanofilt, vsearch, minimap2, and crest4
 
 ## Workflow
 
