@@ -21,6 +21,8 @@ pip install hdbscan         # for clustering
 pip install spoa            # for clustering
 ```
 
+Other depencies are: qcat, nanofilt, vsearch, minimap2, and crest4
+
 ## Workflow
 
 ![GRIFO workflow](https://github.com/pascalhabluetzel/grifo/blob/main/workflow.png "GRIFO workflow")
