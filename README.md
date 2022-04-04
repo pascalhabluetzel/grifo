@@ -27,6 +27,10 @@ Other depencies are: qcat, nanofilt, vsearch, minimap2, and crest4
 
 ![GRIFO workflow](https://github.com/pascalhabluetzel/grifo/blob/main/workflow.png "GRIFO workflow")
 
+New, more elegant workflow for python-version should be:
+
+![updated GRIFO workflow](https://github.com/pascalhabluetzel/grifo/blob/main/python_workflow.png "updated GRIFO workflow")
+
 ## Configuration file
 
 Parameters:<br>
