@@ -19,6 +19,7 @@ pip install pandas          # for organizing underlying data
 pip install scikit-learn    # for clustering
 pip install hdbscan         # for clustering
 pip install spoa            # for clustering
+pip install parasail
 ```
 
 Other depencies are: qcat, nanofilt, vsearch, minimap2, and crest4
