@@ -376,3 +376,4 @@ GRIFO makes use of several tools and datasets from third parties. Please cite th
 - SILVA database - https://www.arb-silva.de/no_cache/download/archive/current/Exports/
 - eDNA dataset demonstrator - https://github.com/iobis/dataset-edna
 - VSEARCH-2.9.1 - https://github.com/torognes/vsearch/releases/tag/v2.9.1
+- BioPython
