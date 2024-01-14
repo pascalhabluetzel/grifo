@@ -268,3 +268,64 @@ def make_output_file(base_name):
         for line in input_file:
             if not line.startswith("#"):
                 output_file.write(line.replace(";", ",").replace("|", ","))
+
+
+
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+path_data = config.get('paths', 'path_data')
+
+
+
+
+
+# Load paths to directories where fastq files are located
+fastq_dir = fastq_directory_paths()
+print(fastq_dir)
+
+# Extract sample names from data
+base_name = basename(fastq_dir)
+print(base_name)
+
+# Count number of raw sequences per sample
+print(accumulate_counts(fastq_dir))
+
+# Filter sequences using NanoFilt
+filtering(fastq_dir, config.get('NanoFilt', 'minlength'), config.get('NanoFilt', 'maxlength'), config.get('NanoFilt', 'qscore'), base_name)
+
+# Concatenate filtered sequences to one file per sample
+concatenate(base_name)
+        
+# Count number of sequences per sample after filtering
+print(count_sequences_concat(base_name))
+
+# Convert fasta files to csv
+fasta2csv(base_name)
+
+# Make sure you save the original working directory before using moving around directories
+wdir = os.getcwd()
+print(wdir)
+
+# Run the actual clustering
+if __name__ == '__main__':
+    num_processes = 8  # Number of available CPU cores 
+    with multiprocessing.Pool(processes=num_processes) as pool:
+        pool.map(cluster, base_name)
+
+# Move back to original working directory after clustering
+os.chdir(wdir)
+
+# Convert csv files to fasta
+csv2fasta(base_name)
+
+# Remove primers using a wrapper function for cutadapt
+remove_primers(base_name)
+
+# Taxonomic annotation using blastn
+blast(base_name)
+
+# Handle the blastn output files and generate a concatenated table with the taxonomic annotations
+make_output_file(base_name) 
+    
+                    
