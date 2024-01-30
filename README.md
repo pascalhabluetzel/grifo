@@ -19,7 +19,7 @@ pip install spoa            # for clustering
 pip install parasail
 ```
 
-Other depencies are: qcat, nanofilt, vsearch, minimap2, and crest4
+Other depencies are: qcat, nanofilt, and vsearch
 
 # Citation
 
