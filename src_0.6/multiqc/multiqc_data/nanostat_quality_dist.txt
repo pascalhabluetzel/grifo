@@ -1,4 +1,0 @@
-Sample	Reads >Q15	Reads Q12-15	Reads Q10-12	Reads Q7-10
-barcode01_statreports	115	7464	10485	6976
-barcode02_statreports	100	7926	11285	7410
-barcode03_statreports	113	6438	8630	5748

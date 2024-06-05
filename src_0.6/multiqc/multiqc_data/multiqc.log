@@ -1,5 +1,0 @@
-[2024-06-05 21:28:47,866] multiqc.core.file_search                           [INFO   ]  Search path: /home/pascal/Documents/git_projects/grifo/src_0.6/multiqc
-[2024-06-05 21:28:47,894] multiqc.modules.nanostat.nanostat                  [INFO   ]  Found 3 reports
-[2024-06-05 21:28:47,930] multiqc.core.write_results                         [INFO   ]  Data        : multiqc_data
-[2024-06-05 21:28:48,025] multiqc.core.write_results                         [INFO   ]  Report      : multiqc_report.html
-[2024-06-05 21:28:48,066] multiqc.multiqc                                    [INFO   ]  MultiQC complete
