@@ -1,0 +1,4 @@
+Sample	Median length	Mean length	Read N50	Median Qual	Mean Qual	# Reads (K)	Total Bases (Mb)
+barcode01_statreports	631.0	642.9	632.0	11.1	10.3	25.04	16.097769
+barcode02_statreports	639.0	645.8	640.0	11.1	10.3	26.721	17.256004
+barcode03_statreports	642.0	654.2	643.0	11.1	10.4	20.929000000000002	13.690945999999999

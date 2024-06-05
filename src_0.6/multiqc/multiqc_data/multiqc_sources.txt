@@ -1,0 +1,4 @@
+Module	Section	Sample Name	Source
+NanoStat	all_sections	barcode01_statreports	/home/pascal/Documents/git_projects/grifo/src_0.6/multiqc/barcode01_statreports
+NanoStat	all_sections	barcode02_statreports	/home/pascal/Documents/git_projects/grifo/src_0.6/multiqc/barcode02_statreports
+NanoStat	all_sections	barcode03_statreports	/home/pascal/Documents/git_projects/grifo/src_0.6/multiqc/barcode03_statreports
