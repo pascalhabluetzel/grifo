@@ -19,7 +19,10 @@ For every sequence (OTU):
      available, otherwise the lowest available rank).
 
 All networks go into one HTML file: pick an OTU from the dropdown menu, or
-step through the OTUs with the arrow keys (left/right or up/down).
+step through the OTUs with the arrow keys (left/right or up/down). Below each
+network, an NCBI-BLAST-style alignment shows the OTU against its best hit
+(--search blast); the other top hits can be picked from a list, or by clicking
+a node in the network.
 
 Input (-i / --input)
   - an OTU table (CSV or TSV) with an OTU-ID column and a sequence column
@@ -358,7 +361,7 @@ def blast_hits(blastn, query_fa, blastdb, outdir, top, min_id, threads, task,
     """
     out_tsv = os.path.join(outdir, "blast_hits_raw.tsv")
     cols = ("qseqid sseqid pident length mismatch gapopen qstart qend sstart send "
-            "evalue bitscore qlen slen qcovhsp")
+            "evalue bitscore score qlen slen qcovhsp qseq sseq")
     cmd = [blastn, "-task", task, "-query", query_fa, "-db", blastdb,
            "-max_target_seqs", str(top), "-max_hsps", "1",
            "-perc_identity", str(round(min_id * 100, 2)), "-evalue", str(evalue),
@@ -379,7 +382,8 @@ def blast_hits(blastn, query_fa, blastdb, outdir, top, min_id, threads, task,
                  "tcov": round(100 * int(r["length"]) / sl, 1),
                  "ql": ql, "tl": sl, "qstrand": "+" if plus else "-",
                  "qstart": qs, "qend": qe, "sstart": ss, "send": se,
-                 "evalue": r["evalue"], "bitscore": float(r["bitscore"])}
+                 "evalue": r["evalue"], "bitscore": float(r["bitscore"]),
+                 "score": int(float(r["score"])), "qaln": r["qseq"], "saln": r["sseq"]}
             old = by_query[h["query"]].get(h["target"])
             if old is None or h["bitscore"] > old["bitscore"]:
                 by_query[h["query"]][h["target"]] = h
@@ -469,6 +473,31 @@ def consensus_assignment(hits, tax_of, delta=0.0, cutoff=0.6):
     return {"label": label, "rank": rank, "support": support, "identity": best,
             "n_top_hits": len(tied), "top_targets": [h["target"] for h in tied],
             "top_labels": labels}
+
+
+def alignment_records(hits, label_of, n=10):
+    """
+    Pairwise BLAST alignments of the OTU with its best `n` hits, for the
+    NCBI-style alignment pane of the HTML page. `label_of(target)` gives the
+    taxon name shown. Coordinates are those BLAST reports: on the untrimmed OTU
+    and on the reference sequence. Hits without a stored alignment (VSEARCH
+    search) are skipped.
+    """
+    out = []
+    for h in hits[:max(0, n)]:
+        q, s = (h.get("qaln") or "").upper(), (h.get("saln") or "").upper()
+        if not q or len(q) != len(s):
+            continue
+        out.append({"target": h["target"], "acc": seq_id(h["target"]),
+                    "label": label_of(h["target"]),
+                    "qs": h["qstart"], "qe": h["qend"], "ql": h["ql"],
+                    "ss": h["sstart"], "se": h["send"], "sl": h["tl"],
+                    "bits": h.get("bitscore"), "score": h.get("score"),
+                    "ev": h.get("evalue"), "pid": h["id"],
+                    "ident": sum(a == b and a != "-" for a, b in zip(q, s)),
+                    "len": len(q), "gaps": q.count("-") + s.count("-"),
+                    "q": q, "s": s})
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -654,8 +683,25 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <style>
  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff;color:#222}
- #net{position:absolute;top:0;left:0;right:340px;bottom:0}
+ #net{position:absolute;top:0;left:0;right:340px;bottom:300px}
  #empty{position:absolute;top:45%;left:0;right:340px;text-align:center;color:#888;display:none}
+ #split{position:absolute;left:0;right:340px;bottom:300px;height:7px;margin-bottom:-4px;cursor:row-resize;z-index:3}
+ #split:hover{background:#0001}
+ #alnpane{position:absolute;left:0;right:340px;bottom:0;height:300px;border-top:1px solid #ddd;background:#fff;display:flex;flex-direction:column}
+ #alnbar{display:flex;gap:8px;align-items:center;padding:5px 10px;border-bottom:1px solid #eee;background:#fafafa;font-size:12px;flex:none}
+ #alnbar b{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#666}
+ #alnsel{flex:1;min-width:0;max-width:640px;font-size:12px;padding:2px}
+ #alnbar button{font-size:12px}
+ #aln{overflow:auto;padding:10px 14px;flex:1}
+ #aln .at{font-size:16px;font-weight:600;margin-bottom:3px}
+ #aln .am{color:#555;margin:2px 0}
+ #aln .am a{color:#1a5fb4}
+ #aln table.as{border-collapse:collapse;margin:8px 0 10px;font-size:12px}
+ #aln table.as th{font-weight:normal;color:#666;text-align:left;padding:2px 22px 0 0;border-top:1px solid #ccc}
+ #aln table.as td{padding:1px 22px 3px 0;border-bottom:1px solid #ccc;white-space:nowrap}
+ #aln pre{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.35;margin:0}
+ #aln pre b{color:#c01c28;background:#fde2e2;font-weight:600}
+ #aln .none{color:#888}
  #side{position:absolute;top:0;right:0;width:340px;bottom:0;overflow:auto;border-left:1px solid #ddd;padding:14px;box-sizing:border-box;font-size:13px;background:#fafafa}
  h1{font-size:16px;margin:0 0 10px} h2{font-size:12px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.05em;color:#666}
  .nav{display:flex;gap:4px;align-items:center}
@@ -671,6 +717,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
  kbd{border:1px solid #bbb;border-radius:3px;padding:0 4px;background:#fff;font-size:11px}
 </style></head><body>
 <div id="net"></div><div id="empty"></div>
+<div id="split" title="Drag to resize the alignment pane"></div>
+<div id="alnpane">
+ <div id="alnbar"><b>Alignment</b><select id="alnsel" title="Top BLAST hits of this OTU"></select>
+  <button id="alntoggle" title="Hide or show the alignment">Hide</button></div>
+ <div id="aln"></div>
+</div>
 <div id="side">
  <h1>__TITLE__</h1>
  <div class="nav">
@@ -697,7 +749,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
  <div id="legend"></div>
  <p style="color:#777;margin-top:14px"><kbd>←</kbd><kbd>→</kbd> or <kbd>↑</kbd><kbd>↓</kbd> step through OTUs.
  Scroll to zoom, drag to pan, drag nodes to rearrange. Node area ∝ number of sequences;
- edge numbers = mutational steps.</p>
+ edge numbers = mutational steps. Click a node to show its BLAST alignment below the network.</p>
 </div>
 <script>
 const D = __DATA__;
@@ -741,8 +793,91 @@ function show(i, pushHash = true) {
   document.getElementById('info').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
   document.getElementById('detail').textContent = 'Click a node.';
   document.getElementById('find').value = '';
+  fillAln();
   render(true);
 }
+
+// ---- NCBI-BLAST-style pairwise alignment -----------------------------------
+let alnH = 300, alnOpen = true;
+const fmtN = x => Number(x).toLocaleString('en-US');
+function ncbiLink(acc) {
+  const m = /^([A-Za-z]+_?\d+\.\d+)/.exec(acc);
+  return m ? `<a href="https://www.ncbi.nlm.nih.gov/nuccore/${m[1]}" target="_blank" rel="noopener">${esc(acc)}</a>` : esc(acc);
+}
+function genbankRange(a) {           // MIDORI IDs: ACC.VER.START.END ('<' / '>' = partial)
+  const m = /^[A-Za-z]+_?\d+\.\d+\.[<>]?(\d+)\.[<>]?(\d+)$/.exec(a.acc);
+  if (!m) return '';
+  const st = +m[1], en = +m[2], pos = p => st <= en ? st + p - 1 : st - p + 1;
+  return ` &nbsp;(GenBank record: ${pos(a.ss)} to ${pos(a.se)})`;
+}
+function alnBlocks(a) {
+  const W = 60, step = a.ss <= a.se ? 1 : -1;
+  const wd = String(Math.max(a.qs, a.qe, a.ss, a.se)).length;
+  const num = n => String(n).padEnd(wd);
+  const out = [];
+  let qi = a.qs, si = a.ss;
+  for (let k = 0; k < a.q.length; k += W) {
+    const qc = a.q.slice(k, k + W), sc = a.s.slice(k, k + W);
+    let ql = '', sl = '', bl = '';
+    for (let i = 0; i < qc.length; i++) {
+      const x = qc[i], y = sc[i], ok = x === y && x !== '-';
+      bl += ok ? '|' : ' ';
+      ql += ok ? x : `<b>${esc(x)}</b>`;
+      sl += ok ? y : `<b>${esc(y)}</b>`;
+    }
+    const qe = qi + qc.replace(/-/g, '').length - 1;
+    const se = si + step * (sc.replace(/-/g, '').length - 1);
+    out.push(`Query  ${num(qi)}  ${ql}  ${qe}`, `       ${' '.repeat(wd)}  ${bl}`,
+             `Sbjct  ${num(si)}  ${sl}  ${se}`, '');
+    qi = qe + 1; si = se + step;
+  }
+  return out.join('\n');
+}
+function showAln(k) {
+  const o = D.otus[cur], A = o.aln || [], box = document.getElementById('aln');
+  if (!A.length) {
+    box.innerHTML = `<div class="none">${o.nhits ? 'No pairwise alignment stored for this OTU (only BLAST searches store one).'
+                                                  : 'No BLAST hit to align.'}</div>`;
+    return;
+  }
+  const a = A[k], pct = (x, n) => Math.round(100 * x / n);
+  document.getElementById('alnsel').value = String(k);
+  const cover = pct(a.qe - a.qs + 1, a.ql);
+  box.innerHTML =
+    `<div class="at"><i>${esc(a.label)}</i></div>` +
+    `<div class="am">Sequence ID: ${ncbiLink(a.acc)} &nbsp; Length: ${fmtN(a.sl)} &nbsp; Number of Matches: 1</div>` +
+    `<div class="am"><b>Range: ${a.ss} to ${a.se}</b>${genbankRange(a)}</div>` +
+    `<table class="as"><tr><th>Score</th><th>Expect</th><th>Identities</th><th>Gaps</th><th>Strand</th><th>Query cover</th></tr>` +
+    `<tr><td>${a.bits != null ? Math.round(a.bits) + ' bits' : '–'}${a.score != null ? '(' + a.score + ')' : ''}</td>` +
+    `<td>${a.ev != null ? esc(a.ev) : '–'}</td><td>${a.ident}/${a.len}(${pct(a.ident, a.len)}%)</td>` +
+    `<td>${a.gaps}/${a.len}(${pct(a.gaps, a.len)}%)</td><td>Plus/${a.ss <= a.se ? 'Plus' : 'Minus'}</td>` +
+    `<td>${cover}% (${a.qs}–${a.qe} of ${a.ql} bp)</td></tr></table>` +
+    `<pre>${alnBlocks(a)}</pre>`;
+}
+function fillAln() {
+  const o = D.otus[cur], A = o.aln || [], sel = document.getElementById('alnsel');
+  sel.innerHTML = A.map((a, k) => `<option value="${k}">${k === 0 ? 'Best hit' : 'Hit ' + (k + 1)}: ${esc(a.label)} — ${esc(a.acc)} (${a.pid.toFixed(1)}%)</option>`).join('');
+  sel.disabled = !A.length;
+  showAln(0);
+}
+function layoutAln() {
+  const h = alnOpen ? alnH : 31;
+  document.getElementById('alnpane').style.height = h + 'px';
+  document.getElementById('net').style.bottom = h + 'px';
+  document.getElementById('split').style.bottom = h + 'px';
+  document.getElementById('split').style.display = alnOpen ? '' : 'none';
+  document.getElementById('aln').style.display = alnOpen ? '' : 'none';
+  document.getElementById('alntoggle').textContent = alnOpen ? 'Hide' : 'Show';
+  net.redraw();
+}
+document.getElementById('alnsel').onchange = e => { showAln(Number(e.target.value)); e.target.blur(); };
+document.getElementById('alntoggle').onclick = () => { alnOpen = !alnOpen; layoutAln(); };
+document.getElementById('split').addEventListener('mousedown', e => {
+  e.preventDefault();
+  const move = ev => { alnH = Math.max(80, Math.min(window.innerHeight - 120, window.innerHeight - ev.clientY)); layoutAln(); };
+  const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+  document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+});
 
 function render(relayout = false) {
   const o = D.otus[cur];
@@ -818,7 +953,14 @@ function togglePhysics() { physicsOn = !physicsOn; net.setOptions({physics: phys
   document.getElementById('phys').textContent = physicsOn ? 'Freeze layout' : 'Relax layout'; }
 function savePNG() { const c = document.querySelector('#net canvas'), a = document.createElement('a');
   a.download = `haplotype_network_${D.otus[cur].id}.png`; a.href = c.toDataURL('image/png'); a.click(); }
-net.on('click', p => { if (p.nodes.length) document.getElementById('detail').textContent = curNodes[p.nodes[0]].detail; });
+net.on('click', p => {
+  if (!p.nodes.length) return;
+  document.getElementById('detail').textContent = curNodes[p.nodes[0]].detail;
+  const o = D.otus[cur], A = o.aln || [];
+  const members = new Set(o.nodes[p.nodes[0]].m.map(([t]) => t));
+  const k = A.findIndex(a => members.has(a.t));
+  if (k >= 0) { showAln(k); if (!alnOpen) { alnOpen = true; layoutAln(); } }
+});
 function findNode(q) { q = q.trim().toLowerCase(); if (!q) { net.unselectAll(); return; }
   const hits = curNodes.filter(n => n.detail.toLowerCase().includes(q)).map(n => n.id);
   net.selectNodes(hits); if (hits.length) net.fit({nodes: hits, animation: true}); }
@@ -970,6 +1112,8 @@ def main():
                          "VSEARCH aligned to the OTU")
     ap.add_argument("--max-label-taxa", type=int, default=2,
                     help="taxa named in a node label before '+N more' (2)")
+    ap.add_argument("--max-alignments", type=int, default=10,
+                    help="top hits whose pairwise BLAST alignment is shown in the page (10)")
     ap.add_argument("--threads", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--mafft-mode", default="auto",
                     choices=["auto", "localpair", "globalpair", "genafpair"])
@@ -1207,8 +1351,11 @@ def main():
         taxa_txt = ", ".join(f"{k} ({v})" for k, v in a["top_labels"].most_common(6)) if a else ""
         if a and len(a["top_labels"]) > 6:
             taxa_txt += ", …"
+        aln = alignment_records(hits, lambda t: tax_of_target(t)["label"], args.max_alignments)
+        for rec in aln:
+            rec["t"] = tidx(rec.pop("target"))
         page_otus.append({
-            "id": o["id"], "len": len(o["seq"]),
+            "id": o["id"], "len": len(o["seq"]), "aln": aln,
             "len_full": o["trim"][2] if o.get("trim") else None,
             "reads": read_count(o["row"], fields) if fields else None,
             "table_tax": table_taxonomy(o["row"]) if fields else None,
