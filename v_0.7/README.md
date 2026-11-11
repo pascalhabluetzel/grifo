@@ -101,26 +101,22 @@ This is the layout MinKNOW / Dorado produce after demultiplexing (`fastq_pass/ba
 > sample folder is used. Don't keep merged copies (e.g. `sample4.fastq.gz`) next to the original
 > chunks, or those reads are counted twice.
 
-### 2. Write `config.ini`
+### 2. Edit `config.ini`
 
-A minimal file:
+All settings are in `config.ini`, next to the notebook. Each one is explained in the file, with
+the values allowed, the default, a suggestion and the effect of changing it. Before a first run,
+check at least these:
 
-```ini
-[paths]
-path_data = ./data
-path_to_blastdb = MIDORI2_TOTAL_NUC_GB273_lrRNA_RAW.fasta
+| section | setting | what to set |
+|---|---|---|
+| `[paths]` | `path_data`, `path_to_blastdb` | your reads folder and the reference FASTA of your marker |
+| `[NanoFilt]` | `minlength`, `maxlength`, `qscore` | read length range around your amplicon, and read quality |
+| `[primers]` | `forward`, `reverse` | your primers, 5'→3' as ordered (IUPAC codes allowed) |
+| `[clustering]` | `parallel_samples`, `threads` | together about the number of CPU cores |
+| `[vsearch]`, `[haplonet]` | `threads` | the number of CPU cores |
 
-[NanoFilt]
-minlength = 100      ; shortest read kept (bp)
-maxlength = 800      ; longest read kept (bp)
-qscore = 20          ; minimum mean read quality (whole number)
-
-[clustering]
-niter = 5            ; clustering iterations
-```
-
-Set `minlength` / `maxlength` around your expected amplicon length. All other settings have
-defaults; the full list is in [Settings](#settings).
+After changing a setting, rerun the notebook section that uses it (named in each section heading
+of `config.ini`) and the sections after it.
 
 ### 3. Run the notebook
 
@@ -169,12 +165,22 @@ barcode01                   29      9475      9427  (99.5%)
 `_clusters.csv`, `_read_assignments.csv` and `_cluster_counts.csv`.
 
 #### Section 5 – Taxonomy and OTU table
-1. The clusters of all samples are pooled and clustered again at 97% with vsearch, so the same
-   organism gets the same OTU in every sample. OTUs are numbered by total reads (`OTU_1` is the
+1. Every cluster sequence is turned to forward orientation (the strand of the forward primer),
+   and the primers (with anything outside them) are cut off. If a primer occurs twice at an end
+   (a primer concatemer), the inner copy is cut. Sequences without any primer are turned to forward
+   orientation with `vsearch --orient`, using the others as reference. A primer is accepted with up to `max_mismatches` (4)
+   mismatches, inserted or missing bases. Clusters with less than 30 bp between the primers (primer
+   dimers) are left out, and with `require_both = yes` also clusters in which a primer is missing.
+   The cell reports how many clusters and reads had both primers, one or none; a missing forward
+   primer often means off-target amplification.
+2. Identical sequences from all samples are merged into one ASV (amplicon sequence variant), with
+   their reads added up. The ASVs are then clustered with vsearch into OTUs at `otu_identity`.
+   The default, 1.0, only joins identical sequences, so each OTU is one ASV; set 0.97 for classic
+   97% OTUs that group the variants of one species. OTUs are numbered by total reads (`OTU_1` is the
    most abundant).
-2. Each OTU is BLASTed against the reference (`haplonet.py`). If the best hit leaves ≥ 10 bases at
+3. Each OTU is BLASTed against the reference (`haplonet.py`). If the best hit leaves ≥ 10 bases at
    an end unmatched (a primer concatemer or chimeric piece), the OTU is trimmed to the matched part.
-3. The taxonomy is the deepest rank on which ≥ 60% of the best hits agree. Ranks the identity
+4. The taxonomy is the deepest rank on which ≥ 60% of the best hits agree. Ranks the identity
    doesn't support are then cleared (species only at ≥ 98%, genus ≥ 95%, family ≥ 90%,
    order ≥ 85%).
 
@@ -197,7 +203,15 @@ is `results/taxonomy/otu_table.csv`:
 | `taxa_best_hits` | taxa of those best hits with their counts |
 | `best_hit` | accession of the best hit |
 | `query_region`, `trimmed_bp` | part of the OTU that was analysed, and how many bases were cut |
-| `sequence` | the OTU sequence (untrimmed) |
+| `primers` | primers found in the OTU's sequence: `both`, `forward only`, `reverse only` or `none` |
+| `n_asvs` | number of ASVs in the OTU |
+| `sequence` | the OTU sequence (its most abundant ASV), between the primers, in forward orientation |
+
+`asv_table.csv` has one row per ASV: its OTU, reads per sample, the OTU's taxonomy, the primers
+found and the sequence; `asvs.fasta` has the ASV sequences.
+
+`primer_trimming.csv` lists every sample cluster with the primers found, its orientation and its
+length before and after trimming.
 
 **Reading the taxonomy.** A row with `genus = Pomatoschistus`, empty `species`, `identity = 97.3`
 and `consensus = Pomatoschistus microps (species)` means: all best hits are *P. microps*, but at
@@ -222,12 +236,19 @@ in a browser.
   node size reflects the number of sequences, and the numbers on the edges are mutational steps.
 - **Click a node** to list its accessions, identity to the OTU and full lineages.
 - **Find** highlights the nodes matching a taxon or accession.
-- **Below the network**, an NCBI-BLAST-style alignment shows the OTU against its best hit: score,
+- **Below the network**, an NCBI-BLAST-style alignment shows the OTU against its best hit (the
+  hit with the highest bit score, as on NCBI): score,
   E-value, identities, gaps, strand, query cover, and the alignment in blocks of 60 bases with
   mismatches and gaps in red. Pick another of the top hits from the list above it, or click a
   node to see the alignment of that haplotype. For MIDORI references the range is also given in
   the coordinates of the GenBank record, so you can compare it directly with NCBI web BLAST.
   Drag the line above the pane to resize it, or hide it.
+- **Links for the best hit.** If the best hit is a eukaryote identified to species, the side panel
+  and the alignment pane link to its **WoRMS** page, its **OBIS** distribution map and its **GBIF**
+  occurrence map. The WoRMS and GBIF IDs are looked up online once per species, while section 6
+  runs, and kept in `results/haplotype_networks/taxon_links.json`. Without internet, or for names
+  WoRMS or GBIF don't know, the links search for the name instead (marked *search*; OBIS needs a
+  WoRMS ID, so it is left out). If WoRMS lists the name as a synonym, the accepted name is shown.
 - **Relax / Freeze layout** and dragging nodes tidy up the picture; **Save PNG** exports it.
 
 The side panel shows the OTU's read count, the OTU-table taxonomy and the consensus of the best
@@ -252,44 +273,22 @@ cannot identify.
 
 ## Settings
 
-All in `config.ini`; everything except `[paths]`, `[NanoFilt]` and `[clustering]` is optional.
+Every setting is in `config.ini`, each with an explanation, the values allowed, the default, a
+suggestion and the effect of changing it. Sections:
 
-```ini
-[vsearch]
-otu_identity = 0.97          ; identity at which sample clusters are pooled into OTUs
-threads = 8
+| section | used by | settings |
+|---|---|---|
+| `[paths]` | all | reads folder, results folder, reference FASTA |
+| `[NanoFilt]` | 2 | read length range, read quality |
+| `[clustering]` | 4 | iterations, parallel samples and threads, consensus and clustering parameters, random seed |
+| `[read_assignment]` | 4 | identity and coverage a read needs to be counted, minimap2 preset |
+| `[primers]` | 5 | primers, allowed mismatches, removing sequences without both primers |
+| `[vsearch]` | 5 | identity for clustering ASVs into OTUs, threads |
+| `[haplonet]` | 5, 6 | BLAST database and search, taxonomy cutoffs, haplotype networks and page |
+| `[BLAST]` | – | only used by the old `grifo.py` script |
 
-[haplonet]
-db = MIDORI2_TOTAL_NUC_GB273_lrRNA_RAW.fasta   ; default: [paths] path_to_blastdb
-blastdb =                    ; prebuilt BLAST database prefix; empty = build in results/taxonomy/blastdb
-blast_task = megablast       ; dc-megablast or blastn find more divergent hits (slower)
-threads = 8
-top = 100                    ; hits kept per OTU
-oversample = 5               ; extra hits requested, as some are discarded
-min_id = 0.70                ; minimum hit identity
-min_qcov = 80                ; minimum query cover of a hit (%)
-evalue = 1e-5
-max_ambig = 0.02             ; discard hits on reference regions with more N/IUPAC codes
-trim_query = yes             ; trim OTUs to the part covered by their best hit
-trim_min = 10                ; ...if at least this many bases are uncovered
-tie_delta = 0.0              ; pool hits within this many %-points of the best
-lca_cutoff = 0.6             ; fraction of best hits that must agree (1.0 = strict LCA)
-rank_cutoffs = yes           ; clear ranks the identity doesn't support
-species_identity = 0.98
-genus_identity = 0.95
-family_identity = 0.90
-order_identity = 0.85
-network_min_reads = 0        ; skip OTUs with fewer reads in the network page
-mafft_mode = auto            ; auto, localpair, globalpair, genafpair
-gaps = fifth                 ; gaps as fifth state, missing, or remove gap columns
-max_label_taxa = 2           ; taxa named on a node before "+N more"
-max_alignments = 10          ; top hits whose BLAST alignment is shown below the network
-title = GRIFO haplotype networks
-```
-
-The BLAST database is rebuilt only if the reference FASTA is newer than it. If you built one
-yourself, point `blastdb` to it (the name without `.nsq`/`.nin`); build it **without**
-`-parse_seqids`, because MIDORI IDs aren't valid BLAST sequence IDs.
+If you delete a line, its default is used (except the required settings in `[paths]`,
+`[NanoFilt]` and `[clustering] niter`).
 
 ---
 
@@ -322,6 +321,7 @@ It writes the same HTML page, a `taxonomic_assignments.tsv` and a copy of the in
 | reads counted twice | merged FASTQ files next to the original chunks in a sample folder |
 | empty ranks in the header check (section 5) | reference header format not recognised; use a supported format or a `--taxonomy` TSV with `haplonet.py` |
 | `BLAST hit IDs … are not in …` | `blastdb` was built from a different FASTA than `db` |
+| few clusters with `both` primers | wrong primer sequences, or the reverse primer entered reverse-complemented; enter both 5'→3' as ordered |
 | many `unassigned` OTUs | wrong marker database, off-target amplification, or too strict cutoffs; look at `identity` and `consensus`, try `blast_task = dc-megablast` |
 | species missing although `consensus` names one | the best identity is below `species_identity` |
 | network page is blank | no internet connection (vis-network loads from a CDN) |

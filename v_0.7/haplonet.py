@@ -38,6 +38,10 @@ Requirements
       conda install -c bioconda blast mafft
     (vsearch only if you use --search vsearch)
   - The HTML file loads vis-network from a CDN (internet needed to view it).
+  - For best hits that are eukaryote species, the page links to WoRMS, OBIS
+    and GBIF. The WoRMS and GBIF IDs are looked up online once per species
+    (cached in <outdir>/taxon_links.json); offline, or with
+    --no-taxon-links, the links search for the name instead.
 
 Supported reference header formats (taxonomy parsed automatically)
   MIDORI2       : >ID root_1;...;genus_Homo_9605;species_Homo_sapiens_9606
@@ -477,14 +481,15 @@ def consensus_assignment(hits, tax_of, delta=0.0, cutoff=0.6):
 
 def alignment_records(hits, label_of, n=10):
     """
-    Pairwise BLAST alignments of the OTU with its best `n` hits, for the
-    NCBI-style alignment pane of the HTML page. `label_of(target)` gives the
+    Pairwise BLAST alignments of the OTU with its best `n` hits by bit score
+    (the order NCBI uses), for the NCBI-style alignment pane of the HTML page. `label_of(target)` gives the
     taxon name shown. Coordinates are those BLAST reports: on the untrimmed OTU
     and on the reference sequence. Hits without a stored alignment (VSEARCH
     search) are skipped.
     """
     out = []
-    for h in hits[:max(0, n)]:
+    ranked = sorted(hits, key=lambda h: -(h.get("bitscore") or 0))   # stable: ties keep their order
+    for h in ranked[:max(0, n)]:
         q, s = (h.get("qaln") or "").upper(), (h.get("saln") or "").upper()
         if not q or len(q) != len(s):
             continue
@@ -498,6 +503,160 @@ def alignment_records(hits, label_of, n=10):
                     "len": len(q), "gaps": q.count("-") + s.count("-"),
                     "q": q, "s": s})
     return out
+
+
+# --------------------------------------------------------------------------
+# Links to WoRMS, OBIS and GBIF for the best hit
+# --------------------------------------------------------------------------
+EUKARYOTE_KINGDOMS = {"animalia", "metazoa", "plantae", "viridiplantae", "fungi", "chromista",
+                      "protozoa", "protista", "stramenopiles", "alveolata", "rhizaria",
+                      "amoebozoa", "excavata", "haptophyta", "cryptophyta", "rhodophyta",
+                      "chlorophyta", "discoba", "metamonada", "sar"}
+SPECIES_NAME = re.compile(r"^[A-Z][a-z]+ [a-z][a-z\-]+( [a-z][a-z\-]+)?$")
+WORMS_URL = "https://www.marinespecies.org/rest/AphiaRecordsByName/{}?like=false&marine_only=false"
+# GBIF switched its taxonomy to the Catalogue of Life eXtended Release (COL XR): taxon keys are
+# now short codes (e.g. Q2M4); the old integer backbone keys return no occurrences on gbif.org
+GBIF_COL_XR = "7ddf754f-d193-4cc9-b351-99906754a03b"
+GBIF_URL = "https://api.gbif.org/v2/species/match?scientificName={}&checklistKey=" + GBIF_COL_XR
+GBIF_COUNT_URL = ("https://api.gbif.org/v1/occurrence/search?taxonKey={}&checklistKey="
+                  + GBIF_COL_XR + "&limit=0")
+GBIF_MAP_URL = "https://www.gbif.org/occurrence/map?taxonKey={}"
+WORMS_SYN_URL = "https://www.marinespecies.org/rest/AphiaSynonymsByAphiaID/{}?offset=1"
+
+
+def best_hit(hits):
+    """The hit with the highest bit score (the 'Best hit' of the HTML page), or None."""
+    return max(hits, key=lambda h: h.get("bitscore") or 0) if hits else None
+
+
+def link_species(tax):
+    """Species name of a reference that is a eukaryote identified to species ({'lineage',
+    'label', 'rank'} as from lowest_label), for the WoRMS/OBIS/GBIF links; else None."""
+    if not tax or tax.get("rank") != "species":
+        return None
+    ranks = {r: n.lower() for r, n in tax["lineage"] if r}
+    eukaryote = (ranks.get("domain", "").startswith("eukaryot")
+                 or ranks.get("kingdom") in EUKARYOTE_KINGDOMS)
+    return tax["label"] if eukaryote and SPECIES_NAME.match(tax["label"]) else None
+
+
+def _get_json(url, timeout=15):
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": "haplonet (GRIFO pipeline)",
+                                               "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        body = r.read()
+    return json.loads(body) if body.strip() else None
+
+
+def _gbif_key(name):
+    """GBIF (COL XR) taxon key of the accepted species for an exact species-name match, else
+    None. Reads the v2 match response ({usage, acceptedUsage, diagnostics}), and a flat one."""
+    from urllib.parse import quote
+    m = _get_json(GBIF_URL.format(quote(name))) or {}
+    usage = m.get("usage") or {}
+    match_type = (m.get("diagnostics") or {}).get("matchType") or m.get("matchType")
+    rank = str(usage.get("rank") or m.get("rank") or "").upper()
+    key = ((m.get("acceptedUsage") or {}).get("key") or usage.get("key")
+           or m.get("acceptedUsageKey") or m.get("usageKey"))
+    if match_type == "EXACT" and rank in ("SPECIES", "SUBSPECIES") and key:
+        return str(key)
+    return None
+
+
+def _gbif_best_key(names, seen):
+    """(key, occurrences) of the GBIF key with the most occurrences among the names."""
+    best = (None, -1)
+    for n in names:
+        key = _gbif_key(n)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        count = int((_get_json(GBIF_COUNT_URL.format(key)) or {}).get("count") or 0)
+        if count > best[1]:
+            best = (key, count)
+    return best
+
+
+def _lookup_species(name):
+    """Accepted WoRMS AphiaID (+ accepted name), and the GBIF species key with occurrences, of a
+    species name; None where not found. GBIF may file a species' occurrences under another
+    name than WoRMS accepts (e.g. Liza aurata for Chelon auratus): if neither the name nor the
+    WoRMS accepted name has occurrences in GBIF, the WoRMS synonyms are tried, and the key with
+    the most occurrences is used. Raises on network errors."""
+    from urllib.parse import quote
+    out = {"aphia": None, "aphia_name": None, "gbif": None, "gbif_n": None, "gbif_checklist": None}
+    records = _get_json(WORMS_URL.format(quote(name))) or []
+    exact = [r for r in records if (r.get("scientificname") or "").lower() == name.lower()]
+    if exact:
+        r = next((x for x in exact if x.get("status") == "accepted"), exact[0])
+        out["aphia"] = r.get("valid_AphiaID") or r.get("AphiaID")
+        out["aphia_name"] = r.get("valid_name") or r.get("scientificname")
+    seen = set()
+    key, count = _gbif_best_key(dict.fromkeys([name, out["aphia_name"] or name]), seen)
+    if count <= 0 and out["aphia"]:
+        synonyms = [s.get("scientificname") for s in
+                    (_get_json(WORMS_SYN_URL.format(out["aphia"])) or [])[:25]]
+        k2, c2 = _gbif_best_key([s for s in synonyms if s and SPECIES_NAME.match(s)], seen)
+        if c2 > count:
+            key, count = k2, c2
+    if key:
+        out["gbif"], out["gbif_n"] = key, max(count, 0)
+    out["gbif_checklist"] = GBIF_COL_XR
+    return out
+
+
+def taxon_links(names, cache_file=None, online=True, workers=6, log=print):
+    """
+    Links for species names: {name: {name, worms, obis, gbif, worms_id, gbif_id, accepted}}.
+    With online=True the WoRMS AphiaID and the GBIF species key are looked up once per name
+    (kept in cache_file), giving direct links to the WoRMS page, the OBIS taxon page with its
+    distribution map and the GBIF occurrence map. Without them (offline, or not in WoRMS/GBIF)
+    the WoRMS and GBIF links search for the name; OBIS needs the WoRMS ID.
+    """
+    from urllib.parse import quote
+    names = sorted({n for n in names if n})
+    cache = {}
+    if cache_file and os.path.exists(cache_file):
+        try:
+            with open(cache_file) as fh:
+                cache = json.load(fh)
+        except (OSError, ValueError):
+            cache = {}
+    todo = [n for n in names if cache.get(n, {}).get("gbif_checklist") != GBIF_COL_XR] if online else []
+    if todo:
+        error = None
+        try:                                    # one lookup first: don't wait on every name offline
+            cache[todo[0]] = _lookup_species(todo[0])
+        except Exception as e:
+            error = e
+        if error is None and len(todo) > 1:
+            with cf.ThreadPoolExecutor(max_workers=workers) as pool:
+                futs = {pool.submit(_lookup_species, n): n for n in todo[1:]}
+                for f in cf.as_completed(futs):
+                    try:
+                        cache[futs[f]] = f.result()
+                    except Exception as e:
+                        error = e
+        missing = sum(n not in cache for n in todo)
+        if missing and log:
+            log(f"Taxon links: {missing} of {len(todo)} WoRMS/GBIF lookups failed ({error}); "
+                f"those link to a name search instead")
+        if cache_file:
+            with open(cache_file, "w") as fh:
+                json.dump(cache, fh, indent=1, sort_keys=True)
+    links = {}
+    for n in names:
+        c, q = cache.get(n) or {}, quote(n)
+        links[n] = {
+            "name": n, "worms_id": c.get("aphia"), "gbif_id": c.get("gbif"), "gbif_n": c.get("gbif_n"),
+            "worms": (f"https://www.marinespecies.org/aphia.php?p=taxdetails&id={c['aphia']}"
+                      if c.get("aphia") else f"https://www.marinespecies.org/aphia.php?p=taxlist&tName={q}"),
+            "obis": f"https://obis.org/taxon/{c['aphia']}" if c.get("aphia") else None,
+            "gbif": (GBIF_MAP_URL.format(quote(str(c["gbif"])))
+                     if c.get("gbif") else f"https://www.gbif.org/species/search?q={q}"),
+            "accepted": c.get("aphia_name") if c.get("aphia_name") not in (None, n) else None}
+    return links
 
 
 # --------------------------------------------------------------------------
@@ -702,6 +861,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
  #aln pre{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.35;margin:0}
  #aln pre b{color:#c01c28;background:#fde2e2;font-weight:600}
  #aln .none{color:#888}
+ .tl a{color:#1a5fb4}
+ .tl .srch{color:#888;font-size:11px}
  #side{position:absolute;top:0;right:0;width:340px;bottom:0;overflow:auto;border-left:1px solid #ddd;padding:14px;box-sizing:border-box;font-size:13px;background:#fafafa}
  h1{font-size:16px;margin:0 0 10px} h2{font-size:12px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.05em;color:#666}
  .nav{display:flex;gap:4px;align-items:center}
@@ -788,6 +949,7 @@ function show(i, pushHash = true) {
   rows.push(['Assignment', `<i>${esc(o.assign.label)}</i> (${esc(o.assign.rank || '')})`]);
   if (o.assign.n) rows.push(['Support', `${Math.round(o.assign.support * 100)}% of ${o.assign.n} best hits at ${o.assign.identity.toFixed(1)}% id`]);
   if (o.assign.taxa) rows.push(['Best-hit taxa', esc(o.assign.taxa)]);
+  if (o.links) rows.push(['Best hit', `<span class="tl"><i>${esc(o.links.name)}</i>${o.links.accepted ? ' (WoRMS: <i>' + esc(o.links.accepted) + '</i>)' : ''}<br>${linkRow(o.links)}</span>`]);
   rows.push(['Network', `${o.nhits} hits, ${o.nodes.length} haplotypes, ${o.L} positions`]);
   if (o.note) rows.push(['Note', esc(o.note)]);
   document.getElementById('info').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
@@ -795,6 +957,16 @@ function show(i, pushHash = true) {
   document.getElementById('find').value = '';
   fillAln();
   render(true);
+}
+
+// ---- links to WoRMS, OBIS and GBIF for the best hit ---------------------------
+function linkRow(L) {
+  const a = (url, text, note) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${text}</a>` +
+    (note ? ` <span class="srch">(${note})</span>` : '') : '';
+  const gbifNote = !L.gbif_id ? 'search' : L.gbif_n == null ? '' :
+    L.gbif_n === 0 ? 'no records' : fmtN(L.gbif_n) + ' records';
+  return [a(L.worms, 'WoRMS', L.worms_id ? '' : 'search'), a(L.obis, 'OBIS map'),
+          a(L.gbif, L.gbif_id ? 'GBIF map' : 'GBIF', gbifNote)].filter(x => x).join(' · ');
 }
 
 // ---- NCBI-BLAST-style pairwise alignment -----------------------------------
@@ -845,6 +1017,7 @@ function showAln(k) {
   const cover = pct(a.qe - a.qs + 1, a.ql);
   box.innerHTML =
     `<div class="at"><i>${esc(a.label)}</i></div>` +
+    (k === 0 && o.links ? `<div class="am tl">${linkRow(o.links)}</div>` : '') +
     `<div class="am">Sequence ID: ${ncbiLink(a.acc)} &nbsp; Length: ${fmtN(a.sl)} &nbsp; Number of Matches: 1</div>` +
     `<div class="am"><b>Range: ${a.ss} to ${a.se}</b>${genbankRange(a)}</div>` +
     `<table class="as"><tr><th>Score</th><th>Expect</th><th>Identities</th><th>Gaps</th><th>Strand</th><th>Query cover</th></tr>` +
@@ -1112,6 +1285,9 @@ def main():
                          "VSEARCH aligned to the OTU")
     ap.add_argument("--max-label-taxa", type=int, default=2,
                     help="taxa named in a node label before '+N more' (2)")
+    ap.add_argument("--no-taxon-links", action="store_true",
+                    help="don't look up WoRMS/GBIF IDs online for the best-hit links "
+                         "(the links then search for the species name)")
     ap.add_argument("--max-alignments", type=int, default=10,
                     help="top hits whose pairwise BLAST alignment is shown in the page (10)")
     ap.add_argument("--threads", type=int, default=max(1, (os.cpu_count() or 2) - 1))
@@ -1323,6 +1499,14 @@ def main():
                             l_index[lab]])
         return t_index[target]
 
+    # links to WoRMS, OBIS and GBIF for best hits that are eukaryote species
+    link_name = {}
+    for o in otus:
+        bh = best_hit(o["hits"])
+        link_name[o["safe"]] = link_species(tax_of_target(bh["target"])) if bh else None
+    links = taxon_links(link_name.values(), os.path.join(args.outdir, "taxon_links.json"),
+                        online=not args.no_taxon_links)
+
     page_otus, summary = [], []
     for o in otus:
         res = results[o["safe"]]
@@ -1363,7 +1547,7 @@ def main():
                         "identity": a["identity"], "n": a["n_top_hits"], "taxa": taxa_txt}
                        if a else {"label": "no hits", "rank": ""}),
             "nhits": len(hits), "L": res["L"], "nodes": nodes, "edges": res["edges"],
-            "note": note})
+            "links": links.get(link_name[o["safe"]]), "note": note})
         summary.append({
             "hn_assignment": a["label"] if a else "no hits",
             "hn_rank": (a["rank"] or "") if a else "",
