@@ -2,3 +2,15 @@ data
 reference_databases
 
 src_0.4/results
+
+# v_0.8 local data and output folders
+v_0.8/data/
+v_0.8/reference_database/
+v_0.8/results/
+v_0.8/__pycache__/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS Finder metadata
+.DS_Store

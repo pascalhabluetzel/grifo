@@ -1,0 +1,23 @@
+# Conda environment for GRIFO v0.8
+# Create:   mamba env create -f environment.yml
+# Activate: mamba activate grifo2
+name: grifo2
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # Python and libraries
+  - python=3.11
+  - numpy
+  - pandas
+  - scikit-learn
+  - jupyterlab
+  # Command-line tools (must be on PATH)
+  - nanofilt
+  - nanostat
+  - multiqc
+  - minimap2
+  - spoa
+  - vsearch
+  - blast
+  - mafft
