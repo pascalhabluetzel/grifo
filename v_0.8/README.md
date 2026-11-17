@@ -3,12 +3,14 @@
 **GRIFO** is a Jupyter-notebook pipeline for **Oxford Nanopore amplicon sequencing** (eDNA
 metabarcoding). It takes demultiplexed reads, filters them, clusters them into consensus
 sequences without a reference, pools those into OTUs shared across samples, assigns their
-taxonomy with BLAST, and draws an interactive haplotype network for every OTU.
+taxonomy with BLAST, draws an interactive haplotype network for every OTU, and packs the results
+with your sample metadata into a Darwin Core Archive for GBIF and OBIS.
 
 ```
 raw reads ──► 1 QC (NanoFilt) ──► 3/4 per-sample clustering (minimap2 + spoa)
           ──► 5 OTUs across samples (vsearch) + taxonomy (BLAST, haplonet.py)
           ──► 6 haplotype networks (MAFFT, haplonet.py) ──► one HTML page
+          ──► 7 Darwin Core Archive (edna2dwca.py + sample metadata) ──► zip for GBIF/OBIS
 ```
 
 ---
@@ -22,6 +24,9 @@ raw reads ──► 1 QC (NanoFilt) ──► 3/4 per-sample clustering (minimap
 | `haplonet.py` | BLAST taxonomy and haplotype networks; used by the notebook, also runs on its own |
 | `clustering_tools.py` | clustering code; **written by the notebook** (section 4), don't edit it by hand |
 | `cluster.py` | the same clustering code as a standalone command-line script |
+| `edna2dwca.py` | converter to a Darwin Core Archive, copied from [MarGenoDaT](https://github.com/pascalhabluetzel/MarGenoDaT) (section 7) |
+| `metadata/sample_metadata_mock.csv` | **mock** sample metadata for testing section 7; replace it with your own |
+| `environment.yml` | the `grifo2` conda environment |
 
 Folders you provide or the pipeline creates (keep them out of git, see [What to commit](#what-to-commit)):
 
@@ -32,6 +37,7 @@ Folders you provide or the pipeline creates (keep them out of git, see [What to 
 | `results/qc/` | filtered reads, clusters and read counts per sample, MultiQC report |
 | `results/taxonomy/` | OTU table, OTU sequences, BLAST hits, BLAST database |
 | `results/haplotype_networks/` | `haplotype_networks.html` and the alignments per OTU |
+| `results/dwca/` | Darwin Core Archive (`.zip`), its QC report and the converter's input files |
 
 ---
 
@@ -272,6 +278,56 @@ one species is a confident identification. An OTU between two species, or far fr
 points to a species missing from the reference, a sequencing artefact, or closely related
 species the marker can't separate.
 
+#### Section 7 – Darwin Core Archive
+Packs the OTU table and your sample metadata into a Darwin Core Archive (DwC-A) for publishing
+through a GBIF or OBIS IPT. The conversion is done by `edna2dwca.py` from
+[MarGenoDaT](https://github.com/pascalhabluetzel/MarGenoDaT); the section prepares its input
+from the GRIFO results.
+
+**1. Make the sample metadata.** Open MarGenoDaT's `eDNA_metadata_template_builder.html` in a
+browser, pick your fields (at least the *FAIRe mandatory* and *OBIS required* quick-add sets),
+download `metadata_template.csv` and fill in one row per sample:
+
+- `samp_name` must be the sample names of the OTU table, i.e. the folder names in `data/`
+  (`barcode01`, …). Samples without a row are left out, with an error in the QC report.
+- Mark blanks with `samp_category = negative control` (and `neg_cont_type`, e.g.
+  `field negative`). Controls are left out of the occurrences.
+- Give the primer sequences 5'→3' in `pcr_primer_forward` / `pcr_primer_reverse`; if they are
+  missing, the sequences from `[primers]` are used.
+- Comma, semicolon or tab separators and the builder's `#` guidance rows are all fine.
+
+`metadata/sample_metadata_mock.csv` shows a filled-in example. It is **made up** (stations,
+dates and sampling details are invented) and only there to test the section.
+
+**2. Fill in `[dwca]` in `config.ini`:** the path to the metadata, and the dataset title,
+abstract, licence and creators for the EML. Only the first creator is required.
+
+**3. Run the section.** It writes to `results/dwca/`:
+
+| file | contents |
+|---|---|
+| `GRIFO_dwca.zip` | the archive: `occurrence.txt`, `dna_derived_data.txt`, `meta.xml`, `eml.xml` |
+| `GRIFO_dwca_QC_report.md` | errors, warnings and inferred values; also shown in the notebook |
+| `otu_table_dwca.tsv`, `otus_dwca.fasta` | the OTU table and sequences as `edna2dwca.py` reads them |
+| `dataset_config.json` | the EML information and pipeline defaults passed to `edna2dwca.py` |
+
+Each record is one OTU in one sample with reads: `organismQuantity` is its reads,
+`sampleSizeValue` the sample's total reads. The taxonomy is the OTU table's (after the identity
+cutoffs). The lineage, with NCBI taxon IDs as `taxonID`, comes from the MIDORI2 header of the best
+hit, or of the first top hit that belongs to the consensus taxon. Unassigned OTUs are kept as
+*Biota* with their sequence (`[dwca] unassigned = drop` leaves them out). The DNA-derived data
+extension gets the OTU sequence, the metadata's sample and assay fields, and the pipeline's
+`otu_db`, `otu_class_appr` and `otu_seq_comp_appr`.
+
+Fix every **error** in the QC report and read the warnings (for example OTUs outside the target
+taxon, or a missing primer reference). Then check the archive with the
+[GBIF data validator](https://www.gbif.org/tools/data-validator) before uploading it to an IPT.
+
+`edna2dwca.py` is MarGenoDaT's script with three small changes, listed at the top of the file
+(semicolon files and `#` guidance rows are read, the FAIRe field `samp_collect_method` is used,
+and the identity is described as the best-hit identity). It still runs on its own:
+`python edna2dwca.py --help`.
+
 ### 4. Check a result at NCBI
 
 To compare an OTU with NCBI's web BLAST, copy its `sequence` from `otu_table.csv` (or `otus.fasta`)
@@ -298,6 +354,7 @@ suggestion and the effect of changing it. Sections:
 | `[primers]` | 5 | primers, allowed mismatches, removing sequences without both primers |
 | `[vsearch]` | 5 | identity for clustering ASVs into OTUs, threads |
 | `[haplonet]` | 5, 6 | BLAST database and search, taxonomy cutoffs, haplotype networks and page |
+| `[dwca]` | 7 | sample metadata file, dataset description (EML), unassigned OTUs, minimum reads |
 | `[BLAST]` | – | only used by the old `grifo.py` script |
 
 If you delete a line, its default is used (except the required settings in `[paths]`,
@@ -339,6 +396,7 @@ It writes the same HTML page, a `taxonomic_assignments.tsv` and a copy of the in
 | lowering *Min. best-hit identity* on the network page doesn't bring OTUs back | those OTUs have no BLAST hit at all; megablast finds only close matches, so set `blast_task = dc-megablast` and run sections 5 and 6 again |
 | species missing although `consensus` names one | the best identity is below `species_identity` |
 | network page is blank | no internet connection (vis-network loads from a CDN) |
+| `Sample '…' is in the OTU table but has no metadata row` (section 7) | `samp_name` in the metadata doesn't match the sample (folder) names; use `barcode01`, … |
 | results differ slightly between runs | clustering samples reads at random; numbers of clusters can vary a little |
 
 ---
