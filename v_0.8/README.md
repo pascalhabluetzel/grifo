@@ -11,6 +11,7 @@ raw reads ──► 1 QC (NanoFilt) ──► 3/4 per-sample clustering (minimap
           ──► 5 OTUs across samples (vsearch) + taxonomy (BLAST, haplonet.py)
           ──► 6 haplotype networks (MAFFT, haplonet.py) ──► one HTML page
           ──► 7 Darwin Core Archive (edna2dwca.py + sample metadata) ──► zip for GBIF/OBIS
+          ──► 8 Krona plot of the taxonomy (ktImportText) ──► one HTML page
 ```
 
 ---
@@ -26,7 +27,7 @@ raw reads ──► 1 QC (NanoFilt) ──► 3/4 per-sample clustering (minimap
 | `cluster.py` | the same clustering code as a standalone command-line script |
 | `edna2dwca.py` | converter to a Darwin Core Archive, copied from [MarGenoDaT](https://github.com/pascalhabluetzel/MarGenoDaT) (section 7) |
 | `metadata/sample_metadata_mock.csv` | **mock** sample metadata for testing section 7; replace it with your own |
-| `environment.yml` | the `grifo2` conda environment |
+| `environment.yml` | the `grifo` conda environment |
 
 Folders you provide or the pipeline creates (keep them out of git, see [What to commit](#what-to-commit)):
 
@@ -38,26 +39,34 @@ Folders you provide or the pipeline creates (keep them out of git, see [What to 
 | `results/taxonomy/` | OTU table, OTU sequences, BLAST hits, BLAST database |
 | `results/haplotype_networks/` | `haplotype_networks.html` and the alignments per OTU |
 | `results/dwca/` | Darwin Core Archive (`.zip`), its QC report and the converter's input files |
+| `results/krona/` | `krona.html` and its input files (`text/`) |
 
 ---
 
 ## Installation
 
 GRIFO needs Python with numpy, pandas and scikit-learn, Jupyter, and these command-line tools on
-your `PATH`: NanoFilt, NanoStat, MultiQC, minimap2, spoa, vsearch, BLAST+ and MAFFT. The easiest
+your `PATH`: NanoFilt, NanoStat, MultiQC, minimap2, spoa, vsearch, BLAST+, MAFFT and Krona. The easiest
 way is one conda environment (Miniforge or Mambaforge):
 
 ```bash
 mamba create -n grifo -c conda-forge -c bioconda \
     python=3.11 numpy pandas scikit-learn jupyterlab \
-    nanofilt nanostat multiqc minimap2 spoa vsearch blast mafft
+    nanofilt nanostat multiqc minimap2 spoa vsearch blast mafft krona
+mamba activate grifo
+```
+
+Or create the same environment from the file in this folder:
+
+```bash
+mamba env create -f environment.yml
 mamba activate grifo
 ```
 
 Check that everything is found:
 
 ```bash
-for t in NanoFilt NanoStat multiqc minimap2 spoa vsearch blastn makeblastdb mafft; do
+for t in NanoFilt NanoStat multiqc minimap2 spoa vsearch blastn makeblastdb mafft ktImportText; do
     printf '%-12s ' $t; command -v $t || echo MISSING
 done
 ```
@@ -328,6 +337,42 @@ taxon, or a missing primer reference). Then check the archive with the
 and the identity is described as the best-hit identity). It still runs on its own:
 `python edna2dwca.py --help`.
 
+#### Section 8 – Krona plot
+Draws the OTU-table taxonomy as an interactive [Krona](https://github.com/marbl/Krona) chart,
+`results/krona/krona.html`: wedges from domain to species, sized by reads, with the OTUs as the
+outermost ring, named with their taxon and best-hit identity (*Chelon auratus - OTU_1 (100.0%)*).
+Click a wedge to zoom in, or hover over it for its name; the chart works offline. Krona's
+*Collapse* box starts unticked (`[krona] collapse = no`), so every rank has its own ring.
+Inner rings get thin when there are many ranks: zoom into a wedge to read genus and species, or
+set `otu_level = no` to make the deepest taxon the outermost ring.
+
+**Identity threshold.** A Krona chart can't filter itself, so it holds one dataset per value in
+`[krona] thresholds` (default 0, 80, 85, 90, 95, 97, 98, 99, 100). Pick one in the list at the top
+left, or step through them with ↑ ↓. Each leaves out the OTUs whose best BLAST hit is below the
+threshold, as *Min. best-hit identity* does on the network page. OTUs without hits appear as
+*No hit* at 0% only. The dataset names give the OTUs and reads left, e.g.
+*All samples, min. identity 98% (19 OTUs, 180,310 reads)*. With `per_sample = yes` (default)
+there is the same set for each sample; control samples are included.
+
+Needs `ktImportText` from the conda package `krona`. Only `ktImportText` is used, so you
+don't need to download Krona's NCBI taxonomy (`ktUpdateTaxonomy.sh`), which conda suggests after
+the install. To add Krona to an existing environment:
+
+```bash
+mamba install -n grifo -c conda-forge -c bioconda krona
+```
+
+Options in `[krona]` (`config.ini`):
+
+```ini
+thresholds = 0, 80, 85, 90, 95, 97, 98, 99, 100   ; minimum best-hit identity (%), one dataset each
+per_sample = yes      ; also one set of datasets per sample (no = all samples together only)
+otu_level = yes       ; OTUs as the outermost ring (no = the deepest taxon, OTUs added up)
+collapse = no         ; start with Krona's 'Collapse' ticked (merges ranks with a single child)
+```
+
+To make the chart again after changing them, run the first code cell of section 5 and section 8.
+
 ### 4. Check a result at NCBI
 
 To compare an OTU with NCBI's web BLAST, copy its `sequence` from `otu_table.csv` (or `otus.fasta`)
@@ -355,6 +400,7 @@ suggestion and the effect of changing it. Sections:
 | `[vsearch]` | 5 | identity for clustering ASVs into OTUs, threads |
 | `[haplonet]` | 5, 6 | BLAST database and search, taxonomy cutoffs, haplotype networks and page |
 | `[dwca]` | 7 | sample metadata file, dataset description (EML), unassigned OTUs, minimum reads |
+| `[krona]` | 8 | identity thresholds of the datasets, per-sample charts, OTU ring |
 | `[BLAST]` | – | only used by the old `grifo.py` script |
 
 If you delete a line, its default is used (except the required settings in `[paths]`,
@@ -397,6 +443,7 @@ It writes the same HTML page, a `taxonomic_assignments.tsv` and a copy of the in
 | species missing although `consensus` names one | the best identity is below `species_identity` |
 | network page is blank | no internet connection (vis-network loads from a CDN) |
 | `Sample '…' is in the OTU table but has no metadata row` (section 7) | `samp_name` in the metadata doesn't match the sample (folder) names; use `barcode01`, … |
+| `Required tool(s) not found on PATH: ktImportText` (section 8) | Krona isn't installed: `mamba install -n grifo -c bioconda krona` |
 | results differ slightly between runs | clustering samples reads at random; numbers of clusters can vary a little |
 
 ---

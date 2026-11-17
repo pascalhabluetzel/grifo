@@ -1,7 +1,7 @@
 # Conda environment for GRIFO v0.8
 # Create:   mamba env create -f environment.yml
-# Activate: mamba activate grifo2
-name: grifo2
+# Activate: mamba activate grifo
+name: grifo
 channels:
   - conda-forge
   - bioconda
@@ -21,3 +21,4 @@ dependencies:
   - vsearch
   - blast
   - mafft
+  - krona
