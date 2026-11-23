@@ -309,7 +309,11 @@ download `metadata_template.csv` and fill in one row per sample:
 dates and sampling details are invented) and only there to test the section.
 
 **2. Fill in `[dwca]` in `config.ini`:** the path to the metadata, and the dataset title,
-abstract, licence and creators for the EML. Only the first creator is required.
+abstract, licence and creators for the EML. Only the first creator is required. Four optional
+settings hold what GRIFO can't derive from the data: `target_subfragment`, `pcr_primer_reference`
+(GBIF and OBIS recommend it; the QC report warns while it is empty), `adapters` and
+`associated_sequences` (the ENA/SRA accession of the raw reads, once deposited). Empty values are
+left out of the archive.
 
 **3. Run the section.** It writes to `results/dwca/`:
 
@@ -318,24 +322,51 @@ abstract, licence and creators for the EML. Only the first creator is required.
 | `GRIFO_dwca.zip` | the archive: `occurrence.txt`, `dna_derived_data.txt`, `meta.xml`, `eml.xml` |
 | `GRIFO_dwca_QC_report.md` | errors, warnings and inferred values; also shown in the notebook |
 | `otu_table_dwca.tsv`, `otus_dwca.fasta` | the OTU table and sequences as `edna2dwca.py` reads them |
-| `dataset_config.json` | the EML information and pipeline defaults passed to `edna2dwca.py` |
+| `dataset_config.json` | the EML information, pipeline defaults and per-sample values passed to `edna2dwca.py` |
+
+The section also writes `results/qc/raw_read_counts.csv`: the raw reads per sample, counted once
+from the FASTQ files in `data/` (this takes a moment the first time) and reused afterwards.
 
 Each record is one OTU in one sample with reads: `organismQuantity` is its reads,
 `sampleSizeValue` the sample's total reads. The taxonomy is the OTU table's (after the identity
 cutoffs). The lineage, with NCBI taxon IDs as `taxonID`, comes from the MIDORI2 header of the best
-hit, or of the first top hit that belongs to the consensus taxon. Unassigned OTUs are kept as
-*Biota* with their sequence (`[dwca] unassigned = drop` leaves them out). The DNA-derived data
-extension gets the OTU sequence, the metadata's sample and assay fields, and the pipeline's
-`otu_db`, `otu_class_appr` and `otu_seq_comp_appr`.
+hit, or of the first top hit that belongs to the consensus taxon. `verbatimIdentification` is
+GRIFO's call (e.g. `Chelon auratus (species)`), and `scientificNameID` the WoRMS LSID of the name
+when section 6 found one (`[haplonet] taxon_links = yes`). Unassigned OTUs are kept as *Biota*
+with their sequence (`[dwca] unassigned = drop` leaves them out).
+
+Everything GRIFO knows about the analysis goes into the archive under an official term. Where
+the sample metadata has a value for a term, the metadata wins.
+
+| what | where it comes from | terms |
+|---|---|---|
+| sample and assay fields | sample metadata | every Darwin Core and DNA-derived data extension column of the metadata |
+| OTU sequence, primers, amplicon size | `otus.fasta`, `[primers]`, OTU length + primers (if both were found) | `DNA_sequence`, `pcr_primer_forward/reverse`, `ampliconSize` |
+| read counts per sample | FASTQ files, OTU table | `lib_reads_seqd`; FAIRe `input_read_count`, `output_read_count`, `output_otu_num`, `otu_num_tax_assigned` |
+| barcode | sample name (`barcode01` …) | `mid` (the native barcode name, not its sequence) |
+| read QC | `[NanoFilt]` | `seq_quality_check`; FAIRe `min_len_cutoff`, `min_len_tool`, `error_rate_tool/type/cutoff` |
+| primer trimming | `[primers]` | FAIRe `trim_method`, `trim_param` |
+| clustering and read assignment | `[clustering]`, `[read_assignment]`, `[vsearch]` | `otu_class_appr`, `chimera_check`; FAIRe `otu_clust_tool`, `otu_clust_cutoff`, `chimera_check_method`, `bioinfo_method_additional` |
+| BLAST and taxonomy | `[haplonet]` | `otu_db`, `ref_db`, `otu_seq_comp_appr`, `sim_search_meth`, `tax_class`; FAIRe `tax_assign_cat`, `tax_class_id_cutoff`, `tax_class_query_cutoff`, `tax_class_collapse`, `tax_class_other`, `taxonID_db` |
+| assignment of each OTU | OTU table | FAIRe `percent_match`, `percent_query_cover`, `confidence_score`, `accession_id_ref_db`, `seq_id` |
+| filtering and screening | `[dwca] min_reads`, QC report | FAIRe `min_reads_cutoff`, `min_reads_cutoff_unit`, `min_reads_tool`, `screen_nontarget_method`, `screen_contam_method` |
+| pipeline | `[dwca] identification_reference` | `sop`, `identificationReferences`; FAIRe `code_repo`, `sop_bioinformatics` |
+
+Darwin Core and DNA-derived data extension terms get their own columns. FAIRe terms that are
+neither (the FAIRe checklist isn't part of the extension yet) go into `dynamicProperties` as
+JSON under their FAIRe names, and the dataset-wide ones are also listed in the EML methods. Tool
+versions are read from the programs on your PATH when the section runs.
 
 Fix every **error** in the QC report and read the warnings (for example OTUs outside the target
 taxon, or a missing primer reference). Then check the archive with the
 [GBIF data validator](https://www.gbif.org/tools/data-validator) before uploading it to an IPT.
 
-`edna2dwca.py` is MarGenoDaT's script with three small changes, listed at the top of the file
-(semicolon files and `#` guidance rows are read, the FAIRe field `samp_collect_method` is used,
-and the identity is described as the best-hit identity). It still runs on its own:
-`python edna2dwca.py --help`.
+`edna2dwca.py` is MarGenoDaT's script with some changes, listed at the top of the file:
+semicolon files and `#` guidance rows are read, the FAIRe field `samp_collect_method` is used,
+the identity is described as the best-hit identity, all metabarcoding terms of the DNA-derived
+data extension and the FAIRe terms (in `dynamicProperties`, with the OTU ID as `seq_id`) are
+written, the OTU table may carry per-OTU term columns, and the config file may hold
+per-sample values (`sample_values`). It still runs on its own: `python edna2dwca.py --help`.
 
 #### Section 8 – Krona plot
 Draws the OTU-table taxonomy as an interactive [Krona](https://github.com/marbl/Krona) chart,
@@ -399,7 +430,7 @@ suggestion and the effect of changing it. Sections:
 | `[primers]` | 5 | primers, allowed mismatches, removing sequences without both primers |
 | `[vsearch]` | 5 | identity for clustering ASVs into OTUs, threads |
 | `[haplonet]` | 5, 6 | BLAST database and search, taxonomy cutoffs, haplotype networks and page |
-| `[dwca]` | 7 | sample metadata file, dataset description (EML), unassigned OTUs, minimum reads |
+| `[dwca]` | 7 | sample metadata file, dataset description (EML), unassigned OTUs, minimum reads, primer reference, target subfragment, adapters, raw-read accession |
 | `[krona]` | 8 | identity thresholds of the datasets, per-sample charts, OTU ring |
 | `[BLAST]` | – | only used by the old `grifo.py` script |
 

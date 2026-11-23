@@ -25,6 +25,17 @@ all backwards compatible:
   * The FAIRe column samp_collect_method is used for samp_collec_method when that is empty.
   * --identity-label sets how the identity column is described in identificationRemarks
     (default unchanged: "mean identity to references"); GRIFO passes the best-hit identity.
+  * All terms of the GBIF DNA-derived data extension that apply to metabarcoding are written
+    when a value is available (sample metadata, config "defaults", config "sample_values" or
+    an OTU-table column of that name), not only a fixed subset.
+  * FAIRe checklist terms that are neither Darwin Core nor DNA-derived extension terms go into
+    dynamicProperties (JSON) under their FAIRe names; the OTU ID is written there as seq_id
+    (was otu_id).
+  * The OTU table may carry per-OTU term columns (e.g. percent_match, scientificNameID,
+    ampliconSize, verbatimIdentification); they are not mistaken for samples.
+  * Occurrence core: scientificNameID and associatedSequences added.
+  * Config "sample_values": {sample: {term: value}} fills per-sample values computed by the
+    pipeline (read counts, ...) where the metadata has none.
 
 Usage
 -----
@@ -63,7 +74,9 @@ OCCURRENCE_TERMS = OrderedDict([
     ("decimalLatitude", DWC), ("decimalLongitude", DWC), ("geodeticDatum", DWC),
     ("coordinateUncertaintyInMeters", DWC),
     ("minimumDepthInMeters", DWC), ("maximumDepthInMeters", DWC),
-    ("scientificName", DWC), ("taxonRank", DWC), ("taxonID", DWC), ("nameAccordingTo", DWC),
+    ("associatedSequences", DWC),
+    ("scientificName", DWC), ("scientificNameID", DWC), ("taxonRank", DWC), ("taxonID", DWC),
+    ("nameAccordingTo", DWC),
     ("identificationQualifier", DWC),
     ("kingdom", DWC), ("phylum", DWC), ("class", DWC), ("order", DWC),
     ("superfamily", DWC), ("family", DWC), ("subfamily", DWC), ("tribe", DWC), ("subtribe", DWC),
@@ -80,12 +93,23 @@ OCC_URI = {"rowType": DWC + "Occurrence"}
 
 MIXS = "https://w3id.org/mixs/"
 GBIFT = "http://rs.gbif.org/terms/"
+MIQE = "http://rs.gbif.org/terms/miqe/"
+GGBN = "http://data.ggbn.org/schemas/ggbn/terms/"
+# Terms of the GBIF DNA-derived data extension (http://rs.gbif.org/terms/1.0/DNADerivedData,
+# issued 2024-07-11) that apply to amplicon metabarcoding, in the order of the extension.
+# Genome-assembly, single-cell, virus and qPCR/ddPCR-only terms are left out.
 DNA_TERMS = OrderedDict([
     ("samp_name", MIXS + "0001107"),
     ("project_name", MIXS + "0000092"),
+    ("experimental_factor", MIXS + "0000008"),
+    ("samp_taxon_id", MIXS + "0001320"),
+    ("neg_cont_type", MIXS + "0001321"),
+    ("pos_cont_type", MIXS + "0001322"),
     ("env_broad_scale", MIXS + "0000012"),
     ("env_local_scale", MIXS + "0000013"),
     ("env_medium", MIXS + "0000014"),
+    ("source_mat_id", MIXS + "0000026"),
+    ("samp_collec_device", MIXS + "0000002"),
     ("samp_collec_method", MIXS + "0001225"),
     ("samp_mat_process", MIXS + "0000016"),
     ("size_frac", MIXS + "0000017"),
@@ -93,15 +117,31 @@ DNA_TERMS = OrderedDict([
     ("samp_vol_we_dna_ext", MIXS + "0000111"),
     ("nucl_acid_ext", MIXS + "0000037"),
     ("nucl_acid_amp", MIXS + "0000038"),
+    ("lib_size", MIXS + "0000039"),
+    ("lib_reads_seqd", MIXS + "0000040"),
     ("lib_layout", MIXS + "0000041"),
+    ("lib_vector", MIXS + "0000042"),
+    ("lib_screen", MIXS + "0000043"),
     ("target_gene", MIXS + "0000044"),
     ("target_subfragment", MIXS + "0000045"),
+    ("pcr_primers", MIXS + "0000046"),
+    ("mid", MIXS + "0000047"),
+    ("adapters", MIXS + "0000048"),
     ("pcr_cond", MIXS + "0000049"),
     ("seq_meth", MIXS + "0000050"),
+    ("seq_quality_check", MIXS + "0000051"),
     ("chimera_check", MIXS + "0000052"),
+    ("tax_ident", MIXS + "0000053"),
+    ("ref_db", MIXS + "0000062"),
+    ("sim_search_meth", MIXS + "0000063"),
+    ("tax_class", MIXS + "0000064"),
+    ("contam_screen_input", MIXS + "0000005"),
+    ("contam_screen_param", MIXS + "0000073"),
+    ("decontam_software", MIXS + "0000074"),
     ("otu_class_appr", MIXS + "0000085"),
     ("otu_seq_comp_appr", MIXS + "0000086"),
     ("otu_db", MIXS + "0000087"),
+    ("url", MIXS + "0000091"),
     ("sop", MIXS + "0000090"),
     ("pcr_primer_forward", GBIFT + "pcr_primer_forward"),
     ("pcr_primer_reverse", GBIFT + "pcr_primer_reverse"),
@@ -109,7 +149,89 @@ DNA_TERMS = OrderedDict([
     ("pcr_primer_name_reverse", GBIFT + "pcr_primer_name_reverse"),
     ("pcr_primer_reference", GBIFT + "pcr_primer_reference"),
     ("DNA_sequence", GBIFT + "dna_sequence"),
+    ("concentration", GGBN + "concentration"),
+    ("concentrationUnit", GGBN + "concentrationUnit"),
+    ("methodDeterminationConcentrationAndRatios", GGBN + "methodDeterminationConcentrationAndRatios"),
+    ("ratioOfAbsorbance260_230", GGBN + "ratioOfAbsorbance260_230"),
+    ("ratioOfAbsorbance260_280", GGBN + "ratioOfAbsorbance260_280"),
+    ("annealingTemp", MIQE + "annealingTemp"),
+    ("annealingTempUnit", MIQE + "annealingTempUnit"),
+    ("ampliconSize", MIQE + "ampliconSize"),
+    ("contaminationAssessment", MIQE + "contaminationAssessment"),
+    ("amplificationReactionVolume", MIQE + "amplificationReactionVolume"),
+    ("amplificationReactionVolumeUnit", MIQE + "amplificationReactionVolumeUnit"),
+    ("pcr_analysis_software", MIQE + "pcr_analysis_software"),
 ])
+
+# FAIRe checklist terms (FAIR-eDNA/FAIRe_checklist; Takahashi et al. 2025, Environmental DNA
+# 7:e70100). Those that are also Darwin Core or DNA-derived extension terms go to their
+# columns; the others are written to dynamicProperties under their FAIRe names.
+FAIRE_TERMS = frozenset("""
+accessRights accession_id accession_id_ref_db adapter_forward adapter_reverse alt amp_vis_method
+ampliconSize amplificationReactionVolume annealingTemp assay_name assay_type assay_validation
+associatedSequences associated_resource automaticBaselineValue
+automaticThresholdQuantificationCycle barcoding_pcr_appr baselineValue bibliographicCitation
+bioinfo_method_additional biological_rep biological_rep_relation block_ref block_seq block_taxa
+checkls_ver checksum_filename checksum_filename2 checksum_method chimera_check_method
+chimera_check_param chlorophyll code_repo commercial_mm concentration concentration_method
+concentration_unit confidence_score custom_mm dataGeneralizations date_ext demux_max_mismatch
+demux_tool detected_notDetected detection_criteria diss_inorg_carb diss_inorg_carb_unit
+diss_inorg_nitro diss_inorg_nitro_unit diss_org_carb diss_org_carb_unit diss_org_nitro
+diss_org_nitro_unit diss_oxygen diss_oxygen_unit dna_cleanup_0_1 dna_cleanup_method dna_sequence
+dna_store_loc efficiency elev env_broad_scale env_local_scale env_medium error_rate_cutoff
+error_rate_tool error_rate_type estimatedNumberOfCopies estimatedNumberOfCopies_error
+estimatedNumberOfCopies_error_type estimatedNumberOfCopies_method estimatedNumberOfCopies_unit
+eventDurationValue filename filename2 filter_diameter filter_material filter_name
+filter_passive_active_0_1 filter_surface_area geo_loc_name habitat_natural_artificial_0_1
+host_height host_height_unit host_length host_length_unit host_life_stage host_species
+host_tot_mass host_tot_mass_unit humidity inhibition_check inhibition_check_0_1
+input_read_count institution instrument intercept lib_conc lib_conc_meth lib_conc_unit lib_id
+lib_layout lib_screen license light_intensity lod_method loq_method merge_min_overlap merge_tool
+mid_forward mid_reverse min_len_cutoff min_len_tool min_reads_cutoff min_reads_cutoff_unit
+min_reads_tool mod_date neg_cont_0_1 neg_cont_type nitrate nitrate_unit nitrite nitrite_unit
+nitro nitro_unit nucl_acid_amp nucl_acid_ext nucl_acid_ext_kit nucl_acid_ext_lysis
+nucl_acid_ext_method_additional nucl_acid_ext_modify nucl_acid_ext_sep num_detect org_carb
+org_carb_unit org_matter org_matter_unit org_nitro org_nitro_unit otu_clust_cutoff otu_clust_tool
+otu_db otu_db_custom otu_final_description otu_num_tax_assigned otu_raw_description
+otu_seq_comp_appr output_otu_num output_read_count parent_project_id part_org_carb
+part_org_carb_unit part_org_nitro part_org_nitro_unit pcr2_amplificationReactionVolume
+pcr2_analysis_software pcr2_annealingTemp pcr2_commercial_mm pcr2_cond pcr2_custom_mm pcr2_cycles
+pcr2_dna_vol pcr2_method_additional pcr2_plate_id pcr2_thermocycler pcr_0_1 pcr_analysis_software
+pcr_assay_lod pcr_assay_lod_LL pcr_assay_lod_UL pcr_assay_lod_techreps pcr_assay_lod_unit
+pcr_assay_loq pcr_assay_loq_LL pcr_assay_loq_UL pcr_assay_loq_techreps pcr_assay_loq_unit
+pcr_cond pcr_cycles pcr_dna_vol pcr_method_additional pcr_plate_id pcr_primer_conc_forward
+pcr_primer_conc_reverse pcr_primer_forward pcr_primer_name_forward pcr_primer_name_reverse
+pcr_primer_reference_forward pcr_primer_reference_reverse pcr_primer_reverse
+pcr_primer_vol_forward pcr_primer_vol_reverse pcr_rep percent_match percent_query_cover ph
+ph_meth phix_perc platform pool_dna_num pos_cont_0_1 pos_cont_type precip_chem_prep
+precip_force_prep precip_temp_prep precip_time_prep prefilter_material prep_method_additional
+prepped_samp_store_dur prepped_samp_store_sol prepped_samp_store_temp probeQuencher probeReporter
+probe_conc probe_ref probe_seq project_contact project_id project_name pump_flow_rate
+pump_flow_rate_unit quantificationCycle r2 ratioOfAbsorbance260_280 rel_cont_id rfu salinity
+samp_category samp_collect_device samp_collect_method samp_mat_process samp_name samp_size
+samp_size_unit samp_store_dur samp_store_loc samp_store_method_additional samp_store_sol
+samp_store_temp samp_vol_we_dna_ext samp_vol_we_dna_ext_unit samp_weather sample_composed_of
+sample_derived_from screen_contam_method screen_geograph_method screen_nontarget_method
+screen_other seq_id seq_kit seq_method_additional seq_run_id sequencing_location size_frac
+size_frac_low slope solar_irradiance sop_bioinformatics stationed_sample_dur std_conc
+std_conc_unit std_seq std_source std_type sterilise_method study_factor suspend_part_matter
+targetTaxonomicAssay targetTaxonomicScope target_gene target_subfragment
+targeted_detection_method_additional tax_assign_cat tax_class_collapse tax_class_id_cutoff
+tax_class_other tax_class_query_cutoff taxonID_db technical_rep_id temp thermocycler
+thresholdQuantificationCycle tidal_stage tot_carb tot_carb_unit tot_depth_water_col
+tot_diss_nitro tot_diss_nitro_unit tot_inorg_nitro tot_inorg_nitro_unit tot_nitro
+tot_nitro_cont_meth tot_nitro_content tot_nitro_content_unit tot_nitro_unit tot_org_c_meth
+tot_org_carb tot_org_carb_unit tot_part_carb tot_part_carb_unit trim_method trim_param turbidity
+water_current wind_direction wind_speed
+""".split())
+# FAIRe terms already carried by another column of the archive (not repeated in dynamicProperties)
+FAIRE_MAPPED = {"samp_collect_method": "samp_collec_method", "samp_collect_device": "samp_collec_device",
+                "geo_loc_name": "locality", "dna_sequence": "DNA_sequence"}
+# FAIRe terms written to dynamicProperties: everything without a DwC / DNA-extension column
+DYN_TERMS = sorted(t for t in FAIRE_TERMS
+                   if t not in DNA_TERMS and t not in OCCURRENCE_TERMS and t not in FAIRE_MAPPED)
+# columns of the OTU table that hold per-OTU values instead of read counts
+OTU_TERM_COLUMNS = set(DNA_TERMS) | set(OCCURRENCE_TERMS) | FAIRE_TERMS
 DNA_ROWTYPE = "http://rs.gbif.org/terms/1.0/DNADerivedData"
 
 # Fields of the DNA extension that GBIF/OBIS treat as essential / strongly recommended
@@ -500,7 +622,12 @@ CONFIG_TEMPLATE = {
         "otu_seq_comp_appr": "",
         "otu_db": "",
         "sop": "",
+        "_comment2": "Any other DNA-derived extension term (e.g. seq_quality_check, chimera_check, "
+                     "ref_db, sim_search_meth, tax_class) or FAIRe term (e.g. trim_method, "
+                     "otu_clust_tool, tax_class_id_cutoff) can be given here too.",
     },
+    "sample_values": {"_comment": "per-sample values from the pipeline, used where the metadata has "
+                                  "none: {\"sample1\": {\"lib_reads_seqd\": 12345, \"output_read_count\": 12000}}"},
     "primer_sequences": {"_comment": "primer name -> 5'-3' sequence", "16S_F": "", "16S_R": ""},
 }
 
@@ -529,20 +656,28 @@ def convert(args):
     seqs = read_fasta(args.fasta) if args.fasta else {}
 
     id_col = otu_fields[0]
-    tax_col = next((f for f in otu_fields if f.lower() in ("taxon", "taxonomy", "lineage",
-                                                             "classification", "tax")), None)
-    ident_col = next((f for f in otu_fields if "ident" in f.lower()), None)
-    ref_col = next((f for f in otu_fields if "ref" in f.lower()), None)
-    sample_cols = [f for f in otu_fields if f not in (id_col, tax_col, ident_col, ref_col)]
+    term_cols = [f for f in otu_fields[1:] if f in OTU_TERM_COLUMNS]   # per-OTU term values
+    other = [f for f in otu_fields if f not in term_cols]
+    tax_col = next((f for f in other if f.lower() in ("taxon", "taxonomy", "lineage",
+                                                        "classification", "tax")), None)
+    ident_col = next((f for f in other if "ident" in f.lower()), None)
+    ref_col = next((f for f in other if "ref" in f.lower()), None)
+    sample_cols = [f for f in other if f not in (id_col, tax_col, ident_col, ref_col)]
     if not tax_col:
         rep.add("ERROR", "No taxonomy column found in OTU table (expected 'taxon'/'taxonomy').")
 
     name_col = next((f for f in meta_fields if f.lower() in ("samp_name", "sample", "sample_id",
                                                                "materialsampleid")), meta_fields[0])
     meta = {r[name_col]: r for r in meta_rows}
-    for r in meta.values():          # FAIRe name -> DNA-derived extension / MIxS name
-        if not r.get("samp_collec_method") and r.get("samp_collect_method"):
-            r["samp_collec_method"] = r["samp_collect_method"]
+    sample_values = {k: v for k, v in deep_get(cfg, "sample_values", default={}).items()
+                     if not k.startswith("_") and isinstance(v, dict)}
+    for s, r in meta.items():
+        for k, v in sample_values.get(s, {}).items():     # pipeline values fill empty metadata
+            if not str(r.get(k) or "").strip() and str(v).strip():
+                r[k] = str(v)
+        for faire, dwc in FAIRE_MAPPED.items():            # FAIRe name -> DNA-derived / MIxS name
+            if dwc in DNA_TERMS and not r.get(dwc) and r.get(faire):
+                r[dwc] = r[faire]
 
     # ---------- sample matching ----------
     in_table = set(sample_cols)
@@ -612,7 +747,7 @@ def convert(args):
 
     # ---------- assay-level fields (FAIRe -> MIxS) ----------
     def mval(s, key):
-        return (meta[s].get(key) or defaults.get(key) or "").strip()
+        return str(meta[s].get(key) or defaults.get(key) or "").strip()
 
     first = meta[samples[0]] if samples else {}
     for p_key in ("pcr_primer_forward", "pcr_primer_reverse"):
@@ -680,6 +815,8 @@ def convert(args):
                 remarks += f"; best reference hits: {refs.replace(';', ', ')}"
         else:
             remarks = f"No taxonomic assignment ({args.classifier}); OTU {otu}"
+        otu_vals = {k: str(r.get(k) or "").strip() for k in term_cols}
+        otu_vals = {k: v for k, v in otu_vals.items() if v and v.lower() != "nan"}
 
         for s in samples:
             reads = int(to_float(r.get(s)) or 0)
@@ -696,10 +833,9 @@ def convert(args):
             prefix = assay if project and assay.startswith(project) else f"{project}_{assay}"
             occ_id = f"{prefix}_{s}_{otu}".replace(" ", "_")
             place = m.get("geo_loc_name", "")
-            dyn = {k: m[k] for k in ("lib_id", "seq_run_id", "assay_type", "assay_name",
-                                    "targetTaxonomicAssay", "pcr_0_1", "project_contact")
-                   if m.get(k)}
-            dyn["otu_id"] = otu
+            dyn = {k: mval(s, k) for k in DYN_TERMS if mval(s, k)}       # FAIRe terms
+            dyn.update({k: v for k, v in otu_vals.items() if k in DYN_TERMS})
+            dyn["seq_id"] = otu
             row = {
                 "occurrenceID": occ_id,
                 "basisOfRecord": "MaterialSample",
@@ -731,9 +867,13 @@ def convert(args):
                 "sampleSizeUnit": "DNA sequence reads",
                 "datasetName": deep_get(cfg, "dataset", "datasetName") or deep_get(cfg, "dataset", "title"),
                 "institutionCode": deep_get(cfg, "dataset", "institutionCode"),
+                "associatedSequences": mval(s, "associatedSequences"),
                 "dynamicProperties": json.dumps(dyn, ensure_ascii=False),
             }
             row.update(tx)
+            for k, v in otu_vals.items():          # per-OTU core values (e.g. scientificNameID)
+                if k in OCCURRENCE_TERMS and k not in ("occurrenceID", "dynamicProperties"):
+                    row[k] = v
             occ.append(row)
 
             fwd = m.get("pcr_primer_forward", "") or defaults.get("pcr_primer_forward", "")
@@ -752,11 +892,9 @@ def convert(args):
                 "pcr_primer_name_reverse": m.get("pcr_primer_name_reverse", "") or ("" if is_primer_seq(rev) else rev),
                 "DNA_sequence": seqs.get(otu, ""),
             }
-            for k in ("samp_collec_method", "samp_mat_process", "size_frac", "samp_size",
-                      "samp_vol_we_dna_ext", "nucl_acid_ext", "nucl_acid_amp", "lib_layout",
-                      "target_subfragment", "pcr_cond", "seq_meth", "chimera_check",
-                      "otu_class_appr", "otu_seq_comp_appr", "otu_db", "sop", "pcr_primer_reference"):
-                drow[k] = mval(s, k)
+            for k in DNA_TERMS:                     # every other extension term with a value
+                if k not in drow:
+                    drow[k] = otu_vals.get(k) or mval(s, k)
             dna.append(drow)
 
     if seqs:
@@ -835,6 +973,12 @@ def convert(args):
         f"{args.min_reads}; organismQuantity = reads, sampleSizeValue = total reads per sample. "
         "Converted with edna2dwca.py following GBIF/OBIS guidance for DNA-derived data and eDNAqua-Plan recommendations.",
     ]
+    faire_ds = [(k, str(defaults[k])) for k in DYN_TERMS if str(defaults.get(k) or "").strip()]
+    if faire_ds:
+        methods.append("Bioinformatics (FAIRe terms; also in dynamicProperties of every record): "
+                       + "; ".join(f"{k} = {v}" for k, v in faire_ds) + ".")
+    dyn_keys = sorted({k for r in occ for k in json.loads(r["dynamicProperties"])})
+    rep.add("INFO", f"FAIRe terms in dynamicProperties ({len(dyn_keys)}): {', '.join(dyn_keys)}.")
     eml = eml_xml(cfg, cov, methods)
 
     # ---------- write ----------
