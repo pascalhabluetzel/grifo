@@ -262,7 +262,9 @@ in a browser.
   mismatches and gaps in red. Pick another of the top hits from the list above it, or click a
   node to see the alignment of that haplotype. For MIDORI references the range is also given in
   the coordinates of the GenBank record, so you can compare it directly with NCBI web BLAST.
-  Drag the line above the pane to resize it, or hide it.
+  Drag the line above the pane to resize it, or hide it. **Copy query sequence** puts the OTU
+  sequence (the part that was analysed, i.e. after trimming) on the clipboard, e.g. to paste it
+  into NCBI web BLAST.
 - **Links for the best hit.** If the best hit is a eukaryote identified to species, the side panel
   and the alignment pane link to its **WoRMS** page, its **OBIS** distribution map and its **GBIF**
   occurrence map. The WoRMS and GBIF IDs are looked up online once per species, while section 6

@@ -888,6 +888,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <div id="split" title="Drag to resize the alignment pane"></div>
 <div id="alnpane">
  <div id="alnbar"><b>Alignment</b><select id="alnsel" title="Top BLAST hits of this OTU"></select>
+  <button id="alncopy" title="Copy the query (OTU) sequence, as analysed, to the clipboard">Copy query sequence</button>
   <button id="alntoggle" title="Hide or show the alignment">Hide</button></div>
  <div id="aln"></div>
 </div>
@@ -1058,6 +1059,7 @@ function showAln(k) {
 }
 function fillAln() {
   const o = D.otus[cur], A = o.aln || [], sel = document.getElementById('alnsel');
+  document.getElementById('alncopy').disabled = !o.seq;
   sel.innerHTML = A.map((a, k) => `<option value="${k}">${k === 0 ? 'Best hit' : 'Hit ' + (k + 1)}: ${esc(a.label)} — ${esc(a.acc)} (${a.pid.toFixed(1)}%)</option>`).join('');
   sel.disabled = !A.length;
   showAln(0);
@@ -1074,6 +1076,20 @@ function layoutAln() {
 }
 document.getElementById('alnsel').onchange = e => { showAln(Number(e.target.value)); e.target.blur(); };
 document.getElementById('alntoggle').onclick = () => { alnOpen = !alnOpen; layoutAln(); };
+document.getElementById('alncopy').onclick = () => {
+  const btn = document.getElementById('alncopy'), seq = D.otus[cur].seq || '';
+  const done = ok => { btn.textContent = ok ? 'Copied ✓' : 'Copy failed';
+    clearTimeout(btn._t); btn._t = setTimeout(() => btn.textContent = 'Copy query sequence', 1500); };
+  const fallback = () => {                  // e.g. browsers without clipboard access for local files
+    const t = document.createElement('textarea'); t.value = seq; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    t.remove(); done(ok);
+  };
+  if (!seq) { done(false); return; }
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(seq).then(() => done(true), fallback);
+  else fallback();
+};
 document.getElementById('split').addEventListener('mousedown', e => {
   e.preventDefault();
   const move = ev => { alnH = Math.max(80, Math.min(window.innerHeight - 120, window.innerHeight - ev.clientY)); layoutAln(); };
@@ -1202,7 +1218,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 let lastBy = '';
 window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-$('a_rank').innerHTML = '<option value=""></option>' + D.ranks.map(r => `<option>${r}</option>`).join('');
+$('a_rank').innerHTML = '<option value=""></option>' + D.ranks.slice().reverse().map(r => `<option>${r}</option>`).join('');   // species first
 $('a_names').innerHTML = [...new Set(D.labels)].filter(l => l !== 'unassigned').sort()
   .map(l => `<option value="${esc(l)}">`).join('');
 
@@ -1690,7 +1706,7 @@ def main():
         for rec in aln:
             rec["t"] = tidx(rec.pop("target"))
         page_otus.append({
-            "id": o["id"], "len": len(o["seq"]), "aln": aln,
+            "id": o["id"], "len": len(o["seq"]), "seq": o["seq"], "aln": aln,
             "len_full": o["trim"][2] if o.get("trim") else None,
             "reads": read_count(o["row"], fields) if fields else None,
             "table_tax": table_taxonomy(o["row"]) if fields else None,
