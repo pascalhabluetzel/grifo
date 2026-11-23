@@ -877,6 +877,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
  input[type=search]{width:100%;box-sizing:border-box;padding:4px;margin-top:4px}
  .thr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#444}
  .thr input{width:64px;padding:3px;font-size:13px}
+ .annot label{display:block;margin:6px 0 0;color:#666;font-size:12px}
+ .annot input,.annot select,.annot textarea{display:block;width:100%;box-sizing:border-box;padding:4px;font:inherit;font-size:13px;color:#222;margin-top:2px}
+ .annot textarea{resize:vertical}
+ .annot button{font-size:12px;margin:8px 4px 0 0}
+ #annorig{color:#555} #a_status{color:#2a7a2a;font-size:12px}
  kbd{border:1px solid #bbb;border-radius:3px;padding:0 4px;background:#fff;font-size:11px}
 </style></head><body>
 <div id="net"></div><div id="empty"></div>
@@ -902,6 +907,18 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
  <div id="pos"></div>
  <h2>OTU</h2>
  <table class="info" id="info"></table>
+ <h2>Manual annotation</h2>
+ <div class="annot">
+  <div id="annorig"></div>
+  <label>scientificName <input id="a_name" list="a_names" autocomplete="off" placeholder="e.g. Chelon ramada"></label>
+  <datalist id="a_names"></datalist>
+  <label>taxonRank <select id="a_rank"></select></label>
+  <label>identifiedBy <input id="a_by" placeholder="your name"></label>
+  <label>dateIdentified <input id="a_date" type="date"></label>
+  <label>identificationRemarks <textarea id="a_rem" rows="3" placeholder="why the assignment was changed"></textarea></label>
+  <button id="a_save">Save for this OTU</button><button id="a_del">Remove</button> <span id="a_status"></span>
+  <button id="a_export">Export</button>
+ </div>
  <h2>Controls</h2>
  <div class="ctl">
  <button onclick="net.fit({animation:true})">Fit view</button>
@@ -940,7 +957,8 @@ net.on('stabilizationIterationsDone', () => { net.setOptions({physics:false}); p
 
 function fillSelect() {
   sel.innerHTML = visible.map(i => { const o = D.otus[i];
-    return `<option value="${i}">${esc(o.id)} — ${esc(o.assign.label)}${o.reads != null ? ' · ' + fmt(o.reads) + ' reads' : ''}</option>`; }).join('');
+    const a = annot[o.id];
+    return `<option value="${i}">${a ? '✎ ' : ''}${esc(o.id)} — ${esc(a ? a.scientificName : o.assign.label)}${o.reads != null ? ' · ' + fmt(o.reads) + ' reads' : ''}</option>`; }).join('');
 }
 
 function show(i, pushHash = true) {
@@ -965,6 +983,7 @@ function show(i, pushHash = true) {
   document.getElementById('info').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
   document.getElementById('detail').textContent = 'Click a node.';
   document.getElementById('find').value = '';
+  fillAnnot();
   fillAln();
   render(true);
 }
@@ -1137,7 +1156,7 @@ function applyFilters() {
   const q = document.getElementById('otufilter').value.trim().toLowerCase(), t = minIdentity();
   visible = D.otus.map((o, i) => i).filter(i => { const o = D.otus[i];
     return passesIdentity(o, t) &&
-      (!q || (o.id + ' ' + o.assign.label + ' ' + (o.table_tax || '') + ' ' + (o.assign.taxa || '')).toLowerCase().includes(q)); });
+      (!q || (o.id + ' ' + o.assign.label + ' ' + (o.table_tax || '') + ' ' + (o.assign.taxa || '') + ' ' + (annot[o.id] ? annot[o.id].scientificName + ' ' + annot[o.id].identificationRemarks + ' manual' : '')).toLowerCase().includes(q)); });
   fillSelect();
   if (!visible.length) { showNone(t); return; }
   if (!visible.includes(cur)) show(visible[0]); else show(cur, false);
@@ -1169,10 +1188,108 @@ function findNode(q) { q = q.trim().toLowerCase(); if (!q) { net.unselectAll(); 
   const hits = curNodes.filter(n => n.detail.toLowerCase().includes(q)).map(n => n.id);
   net.selectNodes(hits); if (hits.length) net.fit({nodes: hits, animation: true}); }
 
+// ---- manual annotations ------------------------------------------------
+// The page always starts from the annotations in the CSV it was built with. Edits live
+// only in this open page: closing or reloading it discards them, so export first.
+let annot = JSON.parse(JSON.stringify(D.annot || {}));
+let dirty = false;                         // edits not exported yet
+try {                                      // remove what earlier versions stored in the browser
+  Object.keys(localStorage).filter(k => k.startsWith('haplonet-annot:') || k === 'haplonet-identifiedBy')
+    .forEach(k => localStorage.removeItem(k));
+} catch (e) {}
+const $ = id => document.getElementById(id);
+const today = () => new Date().toISOString().slice(0, 10);
+let lastBy = '';
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+$('a_rank').innerHTML = '<option value=""></option>' + D.ranks.map(r => `<option>${r}</option>`).join('');
+$('a_names').innerHTML = [...new Set(D.labels)].filter(l => l !== 'unassigned').sort()
+  .map(l => `<option value="${esc(l)}">`).join('');
+
+function updateExport() {
+  const n = Object.keys(annot).length;
+  $('a_export').textContent = `Export ${D.annot_file} (${n} OTU${n === 1 ? '' : 's'})`;
+}
+function fillAnnot() {
+  const o = D.otus[cur], a = annot[o.id];
+  $('annorig').innerHTML = `Original: <i>${esc(o.assign.label)}</i>${o.assign.rank ? ' (' + esc(o.assign.rank) + ')' : ''}` +
+    (a ? ' — <b style="color:#b05a00">manually changed</b>' : '');
+  $('a_name').value = a ? a.scientificName : '';
+  $('a_rank').value = a ? a.taxonRank : '';
+  $('a_by').value = a ? a.identifiedBy : lastBy;
+  $('a_date').value = a ? a.dateIdentified : today();
+  $('a_rem').value = a ? a.identificationRemarks : '';
+  $('a_status').textContent = '';
+  $('a_del').disabled = !a;
+}
+function guessRank(name) {
+  const n = name.trim();
+  if (/^[A-Z][a-z-]+ [a-z][a-z-]+$/.test(n)) return 'species';
+  return '';
+}
+$('a_name').addEventListener('change', () => { if (!$('a_rank').value) $('a_rank').value = guessRank($('a_name').value); });
+$('a_save').onclick = () => {
+  const o = D.otus[cur], name = $('a_name').value.trim();
+  if (!name) { $('a_status').style.color = '#b00'; $('a_status').textContent = 'scientificName is empty'; return; }
+  annot[o.id] = {scientificName: name, taxonRank: $('a_rank').value, identifiedBy: $('a_by').value.trim(),
+                 dateIdentified: $('a_date').value, identificationRemarks: $('a_rem').value.trim()};
+  lastBy = annot[o.id].identifiedBy; dirty = true;
+  fillSelect(); sel.value = String(cur); updateExport(); fillAnnot();
+  $('a_status').style.color = '#2a7a2a'; $('a_status').textContent = 'Saved (not yet exported)';
+};
+$('a_del').onclick = () => {
+  const o = D.otus[cur]; if (!annot[o.id]) return;
+  delete annot[o.id]; dirty = true; fillSelect(); sel.value = String(cur); updateExport(); fillAnnot();
+  $('a_status').style.color = '#2a7a2a'; $('a_status').textContent = 'Removed (not yet exported)';
+};
+$('a_export').onclick = () => {
+  const n = Object.keys(annot).length;
+  const order = D.otus.map(o => o.id).filter(id => annot[id]);
+  Object.keys(annot).forEach(id => { if (!order.includes(id)) order.push(id); });   // OTUs not in this run
+  const q = v => /[",;\n\r]/.test(v) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+  const lines = [D.annot_cols.join(',')].concat(order.map(id =>
+    [id].concat(D.annot_cols.slice(1).map(c => annot[id][c] || '')).map(q).join(',')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], {type: 'text/csv;charset=utf-8'}));
+  a.download = D.annot_file; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  dirty = false;
+  $('a_status').style.color = '#2a7a2a'; $('a_status').textContent = 'Exported';
+};
+updateExport();
+
 fillSelect();
 const start = D.otus.findIndex(o => '#' + encodeURIComponent(o.id) === location.hash);
 if (D.otus.length) show(start >= 0 ? start : 0, false); else showNone(0);
 </script></body></html>"""
+
+
+ANNOT_COLS = ["seq_id", "scientificName", "taxonRank", "identifiedBy",
+              "dateIdentified", "identificationRemarks"]
+
+
+def load_annotations(path):
+    """Manual annotations {seq_id: {column: value}} from manual_annotations.csv."""
+    if not path or not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8-sig") as fh:
+        first = fh.readline()
+    delim = "\t" if first.count("\t") > max(first.count(","), first.count(";")) else (
+        ";" if first.count(";") > first.count(",") else ",")
+    out = {}
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        for r in csv.DictReader(fh, delimiter=delim):
+            r = {(k or "").strip(): (v or "").strip() for k, v in r.items()}
+            sid = r.get("seq_id", "")
+            if sid and not sid.startswith("#"):
+                out[sid] = {c: r.get(c, "") for c in ANNOT_COLS[1:]}
+    return out
+
+
+def annotation_page_data(path):
+    """Page data for the manual-annotation box (merge into the data of write_html)."""
+    return {"annot": load_annotations(path), "annot_cols": ANNOT_COLS, "ranks": RANK_ORDER,
+            "annot_file": os.path.basename(path) if path else "manual_annotations.csv"}
 
 
 def write_html(path, title, data, max_label_taxa):
@@ -1329,6 +1446,9 @@ def main():
     ap.add_argument("--gaps", choices=["fifth", "missing", "remove"], default="fifth",
                     help="gap treatment in the network (default: fifth state)")
     ap.add_argument("--title", default="Haplotype networks", help="page title")
+    ap.add_argument("--annotations",
+                    help="manual_annotations.csv: existing manual annotations, shown and "
+                         "editable on the page (the page exports a new version of it)")
     ap.add_argument("--vsearch", default="vsearch", help="path to vsearch")
     ap.add_argument("--blastn", default="blastn", help="path to blastn")
     ap.add_argument("--makeblastdb", default="makeblastdb", help="path to makeblastdb")
@@ -1611,7 +1731,8 @@ def main():
 
     html_path = os.path.join(args.outdir, "haplotype_networks.html")
     write_html(html_path, args.title,
-               {"otus": page_otus, "targets": targets, "labels": labels},
+               {"otus": page_otus, "targets": targets, "labels": labels,
+                **annotation_page_data(args.annotations)},
                args.max_label_taxa)
 
     n_err = sum(1 for r in results.values() if "error" in r)

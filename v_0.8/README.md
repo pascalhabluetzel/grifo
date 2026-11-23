@@ -27,6 +27,7 @@ raw reads ──► 1 QC (NanoFilt) ──► 3/4 per-sample clustering (minimap
 | `cluster.py` | the same clustering code as a standalone command-line script |
 | `edna2dwca.py` | converter to a Darwin Core Archive, copied from [MarGenoDaT](https://github.com/pascalhabluetzel/MarGenoDaT) (section 7) |
 | `metadata/sample_metadata_mock.csv` | **mock** sample metadata for testing section 7; replace it with your own |
+| `metadata/manual_annotations.csv` | your manual taxonomic annotations, exported from the network page (section 6) and used in the archive (section 7); there only after your first export |
 | `environment.yml` | the `grifo` conda environment |
 
 Folders you provide or the pipeline creates (keep them out of git, see [What to commit](#what-to-commit)):
@@ -269,9 +270,37 @@ in a browser.
   WoRMS or GBIF don't know, the links search for the name instead (marked *search*; OBIS needs a
   WoRMS ID, so it is left out). If WoRMS lists the name as a synonym, the accepted name is shown.
 - **Relax / Freeze layout** and dragging nodes tidy up the picture; **Save PNG** exports it.
+- **Manual annotation** lets you replace GRIFO's assignment of an OTU, see below.
 
 The side panel shows the OTU's read count, the OTU-table taxonomy and the consensus of the best
 hits, plus a **Note** when the OTU was trimmed, had hits on N-runs discarded, or had no hits.
+
+**Changing an assignment by hand.** When the network or the alignment shows that GRIFO's
+assignment is wrong or too precise (for example, the OTU sits among the haplotypes of another
+species than its best hit), correct it in the **Manual annotation** box of the side panel:
+
+1. Under *Original* you see GRIFO's assignment. Fill in `scientificName` (the list suggests the
+   taxa among the hits, but any name works) and `taxonRank`, and check `identifiedBy` and
+   `dateIdentified` (your name is filled in from your previous annotation in this session, the
+   date defaults to today).
+2. Write why you changed it in `identificationRemarks`; it goes into the archive.
+3. Click **Save for this OTU**. Changed OTUs are marked ✎ in the dropdown and show their new name;
+   **Remove** takes the annotation away again. The OTU filter also finds manual names and remarks.
+4. When you're done, click **Export manual_annotations.csv** and save the file as
+   `metadata/manual_annotations.csv` (or where `[dwca] manual_annotations` points). Your browser
+   saves it in your downloads folder; move it there yourself.
+
+The export contains every annotation on the page: the ones from the existing
+`manual_annotations.csv` (the page starts from that file) plus your edits, minus the ones you
+removed.
+
+The page doesn't remember anything itself: every time you open it, it starts from the
+`manual_annotations.csv` it was built with, so edits from an earlier session can't slip into a
+new file. Edits you haven't exported are lost when you close or reload the page (the browser asks
+before it closes a page with unexported edits). Rerun section 6 after saving a new file, so that
+the page starts from it. The
+annotations change only the archive (section 7); the OTU table, the network page's own
+assignment and the Krona plot keep GRIFO's assignment.
 
 **Why lowering the identity threshold may not bring OTUs back.** The threshold can only show
 OTUs that have a BLAST hit. With the default `blast_task = megablast`, BLAST finds only close
@@ -335,6 +364,25 @@ GRIFO's call (e.g. `Chelon auratus (species)`), and `scientificNameID` the WoRMS
 when section 6 found one (`[haplonet] taxon_links = yes`). Unassigned OTUs are kept as *Biota*
 with their sequence (`[dwca] unassigned = drop` leaves them out).
 
+**Manual identifications.** OTUs in `metadata/manual_annotations.csv` (see section 6; the file
+is optional) are published with your identification, and GRIFO's is kept:
+
+| term | value |
+|---|---|
+| `scientificName`, `taxonRank`, lineage, `taxonID` | your name and rank; lineage and NCBI taxon ID from the first MIDORI2 reference whose lineage contains the name |
+| `scientificNameID` | the WoRMS LSID of your name (looked up online when `[haplonet] taxon_links = yes`) |
+| `identifiedBy`, `dateIdentified` | from the file |
+| `identificationVerificationStatus` | `manually verified` |
+| `identificationRemarks` | your remarks, followed by *Manually identified by …; automatic assignment in previousIdentifications* |
+| `previousIdentifications` | GRIFO's assignment, e.g. `Chelon auratus (species), 100.0% identity of the best hit (BLAST+ megablast best-hit consensus, GRIFO v0.8)` |
+| `verbatimIdentification` | GRIFO's call, unchanged (`no hits` for unassigned OTUs) |
+| FAIRe `percent_match`, `confidence_score`, … | unchanged: they describe the BLAST result, not your identification |
+
+A name that isn't in the reference lineages (a typo, or a taxon missing from MIDORI2) is
+published without taxon ID and higher ranks; the notebook and the QC report warn about it.
+Annotations of OTUs that aren't in the OTU table are ignored with a warning. The QC report lists
+all manual identifications with their previous assignment.
+
 Everything GRIFO knows about the analysis goes into the archive under an official term. Where
 the sample metadata has a value for a term, the metadata wins.
 
@@ -365,8 +413,8 @@ taxon, or a missing primer reference). Then check the archive with the
 semicolon files and `#` guidance rows are read, the FAIRe field `samp_collect_method` is used,
 the identity is described as the best-hit identity, all metabarcoding terms of the DNA-derived
 data extension and the FAIRe terms (in `dynamicProperties`, with the OTU ID as `seq_id`) are
-written, the OTU table may carry per-OTU term columns, and the config file may hold
-per-sample values (`sample_values`). It still runs on its own: `python edna2dwca.py --help`.
+written, the OTU table may carry per-OTU term columns (including manual identifications), and
+the config file may hold per-sample values (`sample_values`). It still runs on its own: `python edna2dwca.py --help`.
 
 #### Section 8 – Krona plot
 Draws the OTU-table taxonomy as an interactive [Krona](https://github.com/marbl/Krona) chart,
@@ -430,7 +478,7 @@ suggestion and the effect of changing it. Sections:
 | `[primers]` | 5 | primers, allowed mismatches, removing sequences without both primers |
 | `[vsearch]` | 5 | identity for clustering ASVs into OTUs, threads |
 | `[haplonet]` | 5, 6 | BLAST database and search, taxonomy cutoffs, haplotype networks and page |
-| `[dwca]` | 7 | sample metadata file, dataset description (EML), unassigned OTUs, minimum reads, primer reference, target subfragment, adapters, raw-read accession |
+| `[dwca]` | 6, 7 | sample metadata file, manual annotations file, dataset description (EML), unassigned OTUs, minimum reads, primer reference, target subfragment, adapters, raw-read accession |
 | `[krona]` | 8 | identity thresholds of the datasets, per-sample charts, OTU ring |
 | `[BLAST]` | – | only used by the old `grifo.py` script |
 
@@ -455,7 +503,8 @@ python haplonet.py --help        # all options
 ```
 
 It writes the same HTML page, a `taxonomic_assignments.tsv` and a copy of the input table with
-`hn_*` columns added.
+`hn_*` columns added. Add `--annotations metadata/manual_annotations.csv` to start the page's
+**Manual annotation** box from an existing annotation file.
 
 ---
 
@@ -475,6 +524,8 @@ It writes the same HTML page, a `taxonomic_assignments.tsv` and a copy of the in
 | network page is blank | no internet connection (vis-network loads from a CDN) |
 | `Sample '…' is in the OTU table but has no metadata row` (section 7) | `samp_name` in the metadata doesn't match the sample (folder) names; use `barcode01`, … |
 | `Required tool(s) not found on PATH: ktImportText` (section 8) | Krona isn't installed: `mamba install -n grifo -c bioconda krona` |
+| manual annotations gone from the network page | the page was closed or reloaded before you exported them, or it was built (section 6) before you saved the new `manual_annotations.csv`; rerun section 6 after saving it |
+| `Not found in the reference lineages` / `Manual identifications without NCBI taxon ID` (section 7) | the manual name has a typo, or another rank in MIDORI2 than the `taxonRank` you gave (leave `taxonRank` empty to accept any rank), or the taxon is missing from the reference |
 | results differ slightly between runs | clustering samples reads at random; numbers of clusters can vary a little |
 
 ---

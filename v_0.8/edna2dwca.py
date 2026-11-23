@@ -36,6 +36,12 @@ all backwards compatible:
   * Occurrence core: scientificNameID and associatedSequences added.
   * Config "sample_values": {sample: {term: value}} fills per-sample values computed by the
     pipeline (read counts, ...) where the metadata has none.
+  * Manual identifications: the OTU table may carry identifiedBy, dateIdentified,
+    identificationVerificationStatus, previousIdentifications and identificationRemarks
+    columns. When previousIdentifications is filled, the taxon column holds the manual
+    identification and identificationRemarks holds the given remarks plus a note that it was
+    identified manually (the automatic remarks are left out: they describe the previous
+    assignment); the QC report lists the OTU. Without previousIdentifications, given remarks go in front of the automatic ones.
 
 Usage
 -----
@@ -82,8 +88,9 @@ OCCURRENCE_TERMS = OrderedDict([
     ("superfamily", DWC), ("family", DWC), ("subfamily", DWC), ("tribe", DWC), ("subtribe", DWC),
     ("genus", DWC), ("genericName", DWC), ("subgenus", DWC), ("infragenericEpithet", DWC),
     ("specificEpithet", DWC), ("infraspecificEpithet", DWC), ("higherClassification", DWC),
-    ("verbatimIdentification", DWC), ("identificationRemarks", DWC),
-    ("identificationReferences", DWC),
+    ("verbatimIdentification", DWC), ("identifiedBy", DWC), ("dateIdentified", DWC),
+    ("identificationVerificationStatus", DWC), ("previousIdentifications", DWC),
+    ("identificationRemarks", DWC), ("identificationReferences", DWC),
     ("organismQuantity", DWC), ("organismQuantityType", DWC),
     ("sampleSizeValue", DWC), ("sampleSizeUnit", DWC),
     ("datasetName", DWC), ("institutionCode", DWC),
@@ -794,6 +801,7 @@ def convert(args):
     # ---------- build occurrences ----------
     occ, dna = [], []
     tax_cache, off_target, unassigned_reads, n_unassigned = {}, set(), 0, 0
+    manual, manual_no_ncbi = [], []               # OTUs with a manual identification
     project = first.get("project_id", "") or first.get("project_name", "")
     for r in otu_rows:
         otu = r[id_col]
@@ -817,7 +825,18 @@ def convert(args):
             remarks = f"No taxonomic assignment ({args.classifier}); OTU {otu}"
         otu_vals = {k: str(r.get(k) or "").strip() for k in term_cols}
         otu_vals = {k: v for k, v in otu_vals.items() if v and v.lower() != "nan"}
-
+        manual_remarks = otu_vals.pop("identificationRemarks", "")
+        previous = otu_vals.get("previousIdentifications", "")
+        no_ncbi = bool(previous and lineage and not tx.get("taxonID"))   # manual name not in NCBI lineages
+        if no_ncbi:
+            manual_no_ncbi.append(f"{otu} ({tx['scientificName']})")
+        if previous:                              # manual identification replaces the automatic one
+            by = otu_vals.get("identifiedBy", "")
+            remarks = "; ".join(x for x in (manual_remarks, "Manually identified" + (f" by {by}" if by else "")
+                                             + "; automatic assignment in previousIdentifications") if x)
+            manual.append(f"{otu}: {tx['scientificName']} (was {previous})")
+        elif manual_remarks:
+            remarks = f"{manual_remarks}; {remarks}"
         for s in samples:
             reads = int(to_float(r.get(s)) or 0)
             if reads < args.min_reads or s in controls:
@@ -857,7 +876,7 @@ def convert(args):
                 "coordinateUncertaintyInMeters": mval(s, "coordinateUncertaintyInMeters"),
                 "minimumDepthInMeters": m.get("minimumDepthInMeters", "") or m.get("depth", ""),
                 "maximumDepthInMeters": m.get("maximumDepthInMeters", "") or m.get("depth", ""),
-                "nameAccordingTo": "NCBI Taxonomy" if lineage else "",
+                "nameAccordingTo": "NCBI Taxonomy" if lineage and not no_ncbi else "",
                 "verbatimIdentification": (r.get(tax_col) or "").strip() if lineage else "unassigned",
                 "identificationRemarks": remarks,
                 "identificationReferences": args.identification_reference or "",
@@ -907,7 +926,8 @@ def convert(args):
                 "or non-specific amplification.")
     low = [f"{o} ({tax_cache[o]['scientificName']}, {to_float(r.get(ident_col)):.3f})"
            for r in otu_rows for o in [r[id_col]]
-           if o in tax_cache and ident_col and (to_float(r.get(ident_col)) or 1) < args.species_identity]
+           if o in tax_cache and ident_col and (to_float(r.get(ident_col)) or 1) < args.species_identity
+           and not str(r.get("previousIdentifications") or "").strip()]
     if low:
         rep.add("WARNING", f"Assignments below {args.species_identity:.0%} identity (rank may be over-precise for "
                 f"species/genus-level claims): {'; '.join(low)}. Consider raising them to a higher rank.")
@@ -930,6 +950,12 @@ def convert(args):
     if any(t.get("kingdom") == "Animalia" for t in tax_cache.values()):
         rep.add("INFERRED", "NCBI kingdom 'Metazoa' mapped to 'Animalia' for GBIF/OBIS name matching.")
 
+    if manual:
+        rep.add("INFO", f"Manual identifications ({len(manual)} OTUs; the automatic assignment is kept in "
+                "previousIdentifications and verbatimIdentification): " + "; ".join(manual) + ".")
+    if manual_no_ncbi:
+        rep.add("WARNING", f"Manual identifications without NCBI taxon ID (name not found in the reference "
+                f"lineages; check spelling and rank): {'; '.join(manual_no_ncbi)}.")
     total_reads = sum(totals[s] for s in samples if s not in controls)
     n_otu = len(otu_rows)
     n_assigned = len(tax_cache)
